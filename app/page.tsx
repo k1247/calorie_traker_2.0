@@ -312,17 +312,22 @@ export default function Home() {
     setCurrentScreen('home');
   };
 
-  // ЕКРАН БЛОКУВАННЯ ДЛЯ ЧУЖИХ
+  // ЕКРАН БЛОКУВАННЯ ДЛЯ ЧУЖИХ (З ДІАГНОСТИКОЮ)
   if (isAuthorized === false) {
     return (
       <div className="min-h-screen bg-slate-900 flex justify-center items-center p-5">
         <div className="bg-slate-800 rounded-[30px] p-8 text-center shadow-2xl border border-slate-700 w-full max-w-[320px]">
           <div className="text-5xl mb-4">⛔️</div>
           <h1 className="text-xl font-bold text-white mb-2">Доступ закрито</h1>
-          <p className="text-xs text-gray-400">
-            Цей щоденник є приватним. Ваш акаунт не має прав для перегляду бази
-            даних.
-          </p>
+          <p className="text-xs text-gray-400 mb-4">Цей щоденник є приватним.</p>
+          
+          {/* ЦЕЙ БЛОК НАМ ВСЕ РОЗКАЖЕ */}
+          <div className="bg-slate-950 p-3 rounded-xl text-left font-mono text-[10px] text-pink-400 border border-slate-800">
+            <p>ℹ️ ДІАГНОСТИКА:</p>
+            <p>• Твій ТГ ID: <span className="text-white font-bold">{userId || 'НЕ ЗНАЙДЕНО (Браузер/Кеш)'}</span></p>
+            <p>• Твій ТГ Name: <span className="text-white">{userName || 'Немає'}</span></p>
+            <p>• Скрипт ТГ: <span className="text-white">{typeof window !== 'undefined' && window.Telegram ? 'Завантажено' : 'ВІДСУТНІЙ'}</span></p>
+          </div>
         </div>
       </div>
     );
