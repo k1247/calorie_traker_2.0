@@ -64,36 +64,39 @@ export default function Home() {
   });
 
   useEffect(() => {
-    // Твій білий список ID
-    const allowedIds = ['495727332', '549440234'];
+    // Білий список дозволених ID
+    const allowedIds = [495727332, 549440234, "495727332", "549440234"];
 
-    if (
-      typeof window !== 'undefined' &&
-      window.Telegram &&
-      window.Telegram.WebApp
-    ) {
+    if (typeof window !== 'undefined' && window.Telegram && window.Telegram.WebApp) {
       const webApp = window.Telegram.WebApp;
       webApp.ready();
       webApp.expand();
-
+      
       const tgUser = webApp.initDataUnsafe?.user;
-      if (tgUser) {
-        const tgId = tgUser.id.toString();
-
-        // Фейсконтроль
-        if (allowedIds.includes(tgId)) {
+      
+      if (tgUser && tgUser.id) {
+        const tgId = tgUser.id;
+        
+        // Перевіряємо і як число, і як рядок
+        if (allowedIds.includes(tgId) || allowedIds.includes(tgId.toString())) {
           setIsAuthorized(true);
-          setUserId(tgId);
-          setUserName(tgUser.first_name);
-          fetchUserData(); // Якщо ID підходить — завантажуємо дані
+          setUserId(tgId.toString());
+          setUserName(tgUser.first_name || 'Користувач');
+          fetchUserData();
           return;
         }
       }
     }
 
-    // Якщо це не Телеграм, або ID немає в списку — блокуємо
-    setIsAuthorized(false);
-    setLoading(false);
+    // Якщо відкрили в звичайному браузері — даємо затримку 1 сек, щоб TG WebApp встиг завантажитись
+    const timeout = setTimeout(() => {
+      if (isAuthorized === null) {
+        setIsAuthorized(false);
+        setLoading(false);
+      }
+    }, 1200);
+
+    return () => clearTimeout(timeout);
   }, []);
 
   const fetchUserData = async () => {
