@@ -85,6 +85,7 @@ export default function Home() {
   // --- СТЕЙТИ ТА РЕФИ ДЛЯ СКАНЕРА ---
   const [isScanning, setIsScanning] = useState(false);
   const [scanMessage, setScanMessage] = useState('');
+  // Використовуємо any, щоб не імпортувати типи сканера на рівні файлу (захист від помилок Next.js)
   const codeReaderRef = useRef<any>(null);
 
   const getTodayDateString = () => {
@@ -127,6 +128,7 @@ export default function Home() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Вимикаємо камеру, якщо користувач пішов з вкладки "Сканер"
   useEffect(() => {
     if (activeTab !== 'scanner') {
       if (codeReaderRef.current) {
@@ -262,7 +264,7 @@ export default function Home() {
     setHistoryDatabase(historyDatabase.filter(item => item.name !== name));
   };
 
-  // ════ РОБОТА З КАМЕРОЮ ТА ШТРИХКОДАМИ (ДИНАМІЧНИЙ ІМПОРТ) ════
+  // ════ РОБОТА З КАМЕРОЮ ТА ШТРИХКОДАМИ (З РОЗДІЛЕННЯМ ANDROID / iOS) ════
   const startScanning = async () => {
     setIsScanning(true);
     setScanMessage('Шукаю ідеальну камеру...');
@@ -271,26 +273,68 @@ export default function Home() {
       const codeReader = new ZXing.BrowserMultiFormatReader();
       codeReaderRef.current = codeReader;
       
-      const constraints = {
-        video: {
-          facingMode: 'environment',
-          width: { ideal: 1920, min: 640 },
-          height: { ideal: 1080, min: 480 },
-          advanced: [{ focusMode: 'continuous' } as any]
-        }
-      };
+      // Визначаємо, чи це Android
+      const isAndroid = typeof navigator !== 'undefined' && /android/i.test(navigator.userAgent || navigator.vendor);
 
-      codeReader.decodeFromConstraints(constraints, 'video-preview', (result) => {
-        if (result) {
-          const barcode = result.getText();
-          if (codeReaderRef.current) {
-            codeReaderRef.current.reset();
-            codeReaderRef.current = null;
+      if (isAndroid) {
+        // --- СПЕЦІАЛЬНО ДЛЯ ANDROID ---
+        // Android WebView часто глючить від constraints і бере макро-лінзу.
+        // Тому ми беремо ПЕРШУ ЗАДНЮ фізичну камеру вручну.
+        const devices = await codeReader.listVideoInputDevices();
+        let selectedDeviceId = undefined;
+        
+        if (devices.length > 0) {
+          // Шукаємо камери з мітками 'back', '0' або 'задня'
+          const backCams = devices.filter(d => 
+            d.label.toLowerCase().includes('back') || 
+            d.label.toLowerCase().includes('задня') || 
+            d.label.includes('0')
+          );
+          
+          if (backCams.length > 0) {
+            selectedDeviceId = backCams[0].deviceId; // Основна камера
+          } else {
+            // Якщо мітки пусті, зазвичай задня камера остання в масиві
+            selectedDeviceId = devices[devices.length - 1].deviceId;
           }
-          setIsScanning(false);
-          lookupProduct(barcode);
         }
-      });
+
+        codeReader.decodeFromVideoDevice(selectedDeviceId, 'video-preview', (result) => {
+          if (result) {
+            const barcode = result.getText();
+            if (codeReaderRef.current) {
+              codeReaderRef.current.reset();
+              codeReaderRef.current = null;
+            }
+            setIsScanning(false);
+            lookupProduct(barcode);
+          }
+        });
+
+      } else {
+        // --- ДЛЯ iOS ТА ІНШИХ ---
+        // iOS Safari ідеально працює з constraints і сам вмикає автофокус
+        const constraints = {
+          video: {
+            facingMode: 'environment',
+            width: { ideal: 1920, min: 640 },
+            height: { ideal: 1080, min: 480 },
+            advanced: [{ focusMode: 'continuous' } as any]
+          }
+        };
+
+        codeReader.decodeFromConstraints(constraints, 'video-preview', (result) => {
+          if (result) {
+            const barcode = result.getText();
+            if (codeReaderRef.current) {
+              codeReaderRef.current.reset();
+              codeReaderRef.current = null;
+            }
+            setIsScanning(false);
+            lookupProduct(barcode);
+          }
+        });
+      }
     } catch (err) {
       console.error(err);
       setScanMessage('Помилка доступу до камери або фокусу.');
