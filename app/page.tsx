@@ -47,6 +47,7 @@ interface PeriodStat {
 }
 
 export default function Home() {
+  // 1. СТЕЙТИ
   const [currentScreen, setCurrentScreen] = useState<'home' | 'add' | 'stats' | 'goals'>('home');
   const [activeTab, setActiveTab] = useState<'manual' | 'history' | 'scanner'>('manual');
   const [statsMode, setStatsMode] = useState<'days' | 'weeks' | 'months'>('days');
@@ -82,64 +83,18 @@ export default function Home() {
     weight: '',
   });
 
-  // --- СТЕЙТИ ТА РЕФИ ДЛЯ СКАНЕРА ---
   const [isScanning, setIsScanning] = useState(false);
   const [scanMessage, setScanMessage] = useState('');
-  // Використовуємо any, щоб не імпортувати типи сканера на рівні файлу (захист від помилок Next.js)
   const codeReaderRef = useRef<any>(null);
 
+  // 2. УТИЛІТИ (оголошені ДО їх використання)
   const getTodayDateString = () => {
     const tzoffset = (new Date()).getTimezoneOffset() * 60000;
     const localISOTime = (new Date(Date.now() - tzoffset)).toISOString().slice(0, 10);
     return localISOTime;
   };
 
-  useEffect(() => {
-    const allowedIds = [495727332, 549440234, "495727332", "549440234"];
-
-    if (typeof window !== 'undefined' && window.Telegram && window.Telegram.WebApp) {
-      const webApp = window.Telegram.WebApp;
-      webApp.ready();
-      webApp.expand();
-      
-      const tgUser = webApp.initDataUnsafe?.user;
-      
-      if (tgUser && tgUser.id) {
-        const tgId = tgUser.id;
-        
-        if (allowedIds.includes(tgId) || allowedIds.includes(tgId.toString())) {
-          setIsAuthorized(true);
-          setUserId(tgId.toString());
-          setUserName(tgUser.first_name || 'Користувач');
-          fetchUserData();
-          return;
-        }
-      }
-    }
-
-    const timeout = setTimeout(() => {
-      if (isAuthorized === null) {
-        setIsAuthorized(false);
-        setLoading(false);
-      }
-    }, 1200);
-
-    return () => clearTimeout(timeout);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // Вимикаємо камеру, якщо користувач пішов з вкладки "Сканер"
-  useEffect(() => {
-    if (activeTab !== 'scanner') {
-      if (codeReaderRef.current) {
-        codeReaderRef.current.reset();
-        codeReaderRef.current = null;
-      }
-      setIsScanning(false);
-      setScanMessage('');
-    }
-  }, [activeTab]);
-
+  // 3. ГОЛОВНА ФУНКЦІЯ ЗАВАНТАЖЕННЯ ДАНИХ (оголошена ДО useEffect)
   const fetchUserData = async () => {
     try {
       const todayStr = getTodayDateString();
@@ -234,6 +189,53 @@ export default function Home() {
     }
   };
 
+  // 4. ЕФЕКТИ
+  useEffect(() => {
+    const allowedIds = [495727332, 549440234, "495727332", "549440234"];
+
+    if (typeof window !== 'undefined' && window.Telegram && window.Telegram.WebApp) {
+      const webApp = window.Telegram.WebApp;
+      webApp.ready();
+      webApp.expand();
+      
+      const tgUser = webApp.initDataUnsafe?.user;
+      
+      if (tgUser && tgUser.id) {
+        const tgId = tgUser.id;
+        
+        if (allowedIds.includes(tgId) || allowedIds.includes(tgId.toString())) {
+          setIsAuthorized(true);
+          setUserId(tgId.toString());
+          setUserName(tgUser.first_name || 'Користувач');
+          fetchUserData(); // Тепер компілятор бачить цю функцію
+          return;
+        }
+      }
+    }
+
+    const timeout = setTimeout(() => {
+      if (isAuthorized === null) {
+        setIsAuthorized(false);
+        setLoading(false);
+      }
+    }, 1200);
+
+    return () => clearTimeout(timeout);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    if (activeTab !== 'scanner') {
+      if (codeReaderRef.current) {
+        codeReaderRef.current.reset();
+        codeReaderRef.current = null;
+      }
+      setIsScanning(false);
+      setScanMessage('');
+    }
+  }, [activeTab]);
+
+  // 5. ДОПОМІЖНІ ФУНКЦІЇ ТА ОБРОБНИКИ
   const totalCalories = foodList.reduce((sum, item) => sum + item.cal, 0);
   const totalProtein = foodList.reduce((sum, item) => sum + item.protein, 0);
   const totalFat = foodList.reduce((sum, item) => sum + item.fat, 0);
@@ -264,7 +266,33 @@ export default function Home() {
     setHistoryDatabase(historyDatabase.filter(item => item.name !== name));
   };
 
-  // ════ РОБОТА З КАМЕРОЮ ТА ШТРИХКОДАМИ (З РОЗДІЛЕННЯМ ANDROID / iOS) ════
+  const lookupProduct = async (barcode: string) => {
+    setScanMessage('Шукаю в базі: ' + barcode);
+    try {
+      const res = await fetch(`https://world.openfoodfacts.org/api/v0/product/${barcode}.json`);
+      const data = await res.json();
+
+      if (data.status === 1) {
+        const p = data.product.nutriments;
+        setFormData({
+          ...formData,
+          name: data.product.product_name || 'Невідомий продукт',
+          calories: (p['energy-kcal_100g'] || 0).toString(),
+          protein: (p['proteins_100g'] || 0).toString(),
+          fat: (p['fat_100g'] || 0).toString(),
+          carbs: (p['carbohydrates_100g'] || 0).toString(),
+        });
+        setActiveTab('manual');
+        setScanMessage('');
+      } else {
+        setScanMessage('❌ Продукт не знайдено — введи вручну.');
+      }
+    } catch (e) {
+      console.error(e);
+      setScanMessage('Помилка мережі при пошуку.');
+    }
+  };
+
   const startScanning = async () => {
     setIsScanning(true);
     setScanMessage('Шукаю ідеальну камеру...');
@@ -273,28 +301,21 @@ export default function Home() {
       const codeReader = new ZXing.BrowserMultiFormatReader();
       codeReaderRef.current = codeReader;
       
-      // Визначаємо, чи це Android
-      const isAndroid = typeof navigator !== 'undefined' && /android/i.test(navigator.userAgent || navigator.vendor);
+      const isAndroid = typeof navigator !== 'undefined' && /android/i.test((navigator as any).userAgent || (navigator as any).vendor || '');
 
       if (isAndroid) {
-        // --- СПЕЦІАЛЬНО ДЛЯ ANDROID ---
-        // Android WebView часто глючить від constraints і бере макро-лінзу.
-        // Тому ми беремо ПЕРШУ ЗАДНЮ фізичну камеру вручну.
         const devices = await codeReader.listVideoInputDevices();
         let selectedDeviceId = undefined;
         
         if (devices.length > 0) {
-          // Шукаємо камери з мітками 'back', '0' або 'задня'
           const backCams = devices.filter(d => 
             d.label.toLowerCase().includes('back') || 
             d.label.toLowerCase().includes('задня') || 
             d.label.includes('0')
           );
-          
           if (backCams.length > 0) {
-            selectedDeviceId = backCams[0].deviceId; // Основна камера
+            selectedDeviceId = backCams[0].deviceId;
           } else {
-            // Якщо мітки пусті, зазвичай задня камера остання в масиві
             selectedDeviceId = devices[devices.length - 1].deviceId;
           }
         }
@@ -312,8 +333,6 @@ export default function Home() {
         });
 
       } else {
-        // --- ДЛЯ iOS ТА ІНШИХ ---
-        // iOS Safari ідеально працює з constraints і сам вмикає автофокус
         const constraints = {
           video: {
             facingMode: 'environment',
@@ -350,33 +369,6 @@ export default function Home() {
     setScanMessage('');
   };
 
-  const lookupProduct = async (barcode: string) => {
-    setScanMessage('Шукаю в базі: ' + barcode);
-    try {
-      const res = await fetch(`https://world.openfoodfacts.org/api/v0/product/${barcode}.json`);
-      const data = await res.json();
-
-      if (data.status === 1) {
-        const p = data.product.nutriments;
-        setFormData({
-          ...formData,
-          name: data.product.product_name || 'Невідомий продукт',
-          calories: (p['energy-kcal_100g'] || 0).toString(),
-          protein: (p['proteins_100g'] || 0).toString(),
-          fat: (p['fat_100g'] || 0).toString(),
-          carbs: (p['carbohydrates_100g'] || 0).toString(),
-        });
-        setActiveTab('manual');
-        setScanMessage('');
-      } else {
-        setScanMessage('❌ Продукт не знайдено — введи вручну.');
-      }
-    } catch (e) {
-      console.error(e);
-      setScanMessage('Помилка мережі при пошуку.');
-    }
-  };
-
   const handleAddFood = async () => {
     if (!formData.name || !formData.calories || !formData.weight) return;
     const weightRatio = Number(formData.weight) / 100;
@@ -401,6 +393,7 @@ export default function Home() {
     setCurrentScreen('home');
   };
 
+  // 6. ВІЗУАЛІЗАЦІЯ
   if (isAuthorized === false) {
     return (
       <div className="min-h-screen bg-slate-900 flex justify-center items-center p-5">
