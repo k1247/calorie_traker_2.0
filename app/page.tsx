@@ -83,8 +83,11 @@ export default function Home() {
     weight: '',
   });
 
+  // --- СТЕЙТИ ДЛЯ СКАНЕРА ТА КАМЕРИ ---
   const [isScanning, setIsScanning] = useState(false);
   const [scanMessage, setScanMessage] = useState('');
+  const [availableCameras, setAvailableCameras] = useState<any[]>([]);
+  const [currentCamIdx, setCurrentCamIdx] = useState(0);
   const codeReaderRef = useRef<any>(null);
 
   // 2. УТИЛІТИ 
@@ -293,9 +296,10 @@ export default function Home() {
     }
   };
 
-  const startScanning = async () => {
+  // ════ ОНОВЛЕНИЙ СКАНЕР З ПЕРЕМИКАННЯМ КАМЕР ДЛЯ ANDROID ════
+  const startScanning = async (camIndex = 0) => {
     setIsScanning(true);
-    setScanMessage('Шукаю ідеальну камеру...');
+    setScanMessage('Шукаю камеру...');
     try {
       const ZXing = await import('@zxing/library');
       const codeReader = new ZXing.BrowserMultiFormatReader();
@@ -303,63 +307,66 @@ export default function Home() {
       
       const isAndroid = typeof navigator !== 'undefined' && /android/i.test((navigator as any).userAgent || (navigator as any).vendor || '');
 
-      if (isAndroid) {
-        const devices = await codeReader.listVideoInputDevices();
-        // ТУТ ВИПРАВЛЕНО НА null ДЛЯ VERCEL
-        let selectedDeviceId: string | null = null;
-        
-        if (devices.length > 0) {
-          const backCams = devices.filter(d => 
-            d.label.toLowerCase().includes('back') || 
-            d.label.toLowerCase().includes('задня') || 
-            d.label.includes('0')
-          );
-          if (backCams.length > 0) {
-            selectedDeviceId = backCams[0].deviceId;
-          } else {
-            selectedDeviceId = devices[devices.length - 1].deviceId;
-          }
+      let constraints: any = {
+        video: {
+          facingMode: 'environment',
+          width: { ideal: 1920, min: 640 },
+          height: { ideal: 1080, min: 480 },
+          advanced: [{ focusMode: 'continuous' }]
         }
+      };
 
-        // ДОДАНО :any до result ДЛЯ VERCEL
-        codeReader.decodeFromVideoDevice(selectedDeviceId, 'video-preview', (result: any) => {
-          if (result) {
-            const barcode = result.getText();
-            if (codeReaderRef.current) {
-              codeReaderRef.current.reset();
-              codeReaderRef.current = null;
+      if (isAndroid) {
+        // Отримуємо всі камери пристрою
+        const devices = await codeReader.listVideoInputDevices();
+        // Відбираємо тільки задні лінзи
+        const backCams = devices.filter(d => 
+          d.label.toLowerCase().includes('back') || 
+          d.label.toLowerCase().includes('задня') || 
+          d.label.includes('0') || 
+          d.label.includes('1') || 
+          d.label.includes('2')
+        );
+        const targetCams = backCams.length > 0 ? backCams : devices;
+        setAvailableCameras(targetCams);
+        
+        if (targetCams.length > 0) {
+          const safeIndex = camIndex % targetCams.length;
+          setCurrentCamIdx(safeIndex);
+          const selectedCam = targetCams[safeIndex];
+          
+          // Примусово додаємо deviceId разом з роздільною здатністю
+          constraints = {
+            video: {
+              deviceId: { exact: selectedCam.deviceId },
+              width: { ideal: 1920, min: 640 },
+              height: { ideal: 1080, min: 480 },
+              advanced: [{ focusMode: 'continuous' }]
             }
-            setIsScanning(false);
-            lookupProduct(barcode);
-          }
-        });
-
-      } else {
-        const constraints = {
-          video: {
-            facingMode: 'environment',
-            width: { ideal: 1920, min: 640 },
-            height: { ideal: 1080, min: 480 },
-            advanced: [{ focusMode: 'continuous' } as any]
-          }
-        };
-
-        codeReader.decodeFromConstraints(constraints, 'video-preview', (result: any) => {
-          if (result) {
-            const barcode = result.getText();
-            if (codeReaderRef.current) {
-              codeReaderRef.current.reset();
-              codeReaderRef.current = null;
-            }
-            setIsScanning(false);
-            lookupProduct(barcode);
-          }
-        });
+          };
+        }
       }
+
+      codeReader.decodeFromConstraints(constraints, 'video-preview', (result: any) => {
+        if (result) {
+          const barcode = result.getText();
+          stopScanning();
+          lookupProduct(barcode);
+        }
+      });
     } catch (err) {
       console.error(err);
       setScanMessage('Помилка доступу до камери або фокусу.');
     }
+  };
+
+  const switchCamera = () => {
+    if (codeReaderRef.current) {
+      codeReaderRef.current.reset();
+      codeReaderRef.current = null;
+    }
+    const nextIdx = currentCamIdx + 1;
+    startScanning(nextIdx);
   };
 
   const stopScanning = () => {
@@ -581,11 +588,19 @@ export default function Home() {
                 )}
 
                 {isScanning ? (
-                  <button onClick={stopScanning} className="w-full bg-slate-200 text-gray-600 py-3 rounded-xl font-bold text-xs uppercase tracking-wider mt-2 active:scale-95">
-                    Зупинити сканер
-                  </button>
+                  <div className="flex gap-2 w-full mt-2">
+                    {/* КНОПКА ПЕРЕМИКАННЯ КАМЕР (З'являється тільки на Android, якщо є > 1 лінзи) */}
+                    {availableCameras.length > 1 && (
+                      <button onClick={switchCamera} className="flex-1 bg-slate-200 text-gray-600 py-3 rounded-xl font-bold text-[10px] uppercase tracking-wider active:scale-95 shadow-sm border border-slate-300">
+                        🔄 Інша ({currentCamIdx + 1}/{availableCameras.length})
+                      </button>
+                    )}
+                    <button onClick={stopScanning} className="flex-1 bg-slate-200 text-gray-600 py-3 rounded-xl font-bold text-[10px] uppercase tracking-wider active:scale-95 shadow-sm border border-slate-300">
+                      Зупинити
+                    </button>
+                  </div>
                 ) : (
-                  <button onClick={startScanning} className="w-full bg-[#FF6EB4] text-white py-3 rounded-xl font-bold text-xs uppercase tracking-wider mt-2 shadow-md active:scale-95">
+                  <button onClick={() => startScanning(0)} className="w-full bg-[#FF6EB4] text-white py-3 rounded-xl font-bold text-xs uppercase tracking-wider mt-2 shadow-md active:scale-95">
                     Почати сканування
                   </button>
                 )}
