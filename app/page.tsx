@@ -541,11 +541,21 @@ export default function Home() {
                   </span>
                 </div>
 
+                {/* 📊 ГРАФІК: ВСІ СТОВПЧИКИ ТЕПЕР ПОВНІСТЮ ДИНАМІЧНІ ТА ЗАЛЕЖАТЬ ВІД ЗМІНИ ЦІЛІ НА ЕКРАНІ goals */}
                 {statsMode === 'days' && (
                   <>
-                    <div className="flex-1 flex flex-col items-center h-full justify-end"><div className="w-full bg-gradient-to-t from-[#C96EFF] to-[#FF9ED6] rounded-t-md" style={{ height: '70%' }}></div><span className="text-[9px] text-gray-400 absolute bottom-0">Пн</span></div>
-                    <div className="flex-1 flex flex-col items-center h-full justify-end"><div className="w-full bg-gray-200 rounded-t-md" style={{ height: '82%' }}></div><span className="text-[9px] text-gray-400 absolute bottom-0">Вт</span></div>
-                    <div className="flex-1 flex flex-col items-center h-full justify-end"><div className="w-full bg-gradient-to-t from-[#C96EFF] to-[#FF9ED6] rounded-t-md" style={{ height: '64%' }}></div><span className="text-[9px] text-gray-400 absolute bottom-0">Ср</span></div>
+                    <div className="flex-1 flex flex-col items-center h-full justify-end">
+                      <div className="w-full bg-gradient-to-t from-[#C96EFF] to-[#FF9ED6] rounded-t-md transition-all duration-300" style={{ height: `${Math.min((1450 / userGoals.calories) * 100, 100)}%` }}></div>
+                      <span className="text-[9px] text-gray-400 absolute bottom-0">Пн</span>
+                    </div>
+                    <div className="flex-1 flex flex-col items-center h-full justify-end">
+                      <div className="w-full bg-gray-200 rounded-t-md transition-all duration-300" style={{ height: `${Math.min((1720 / userGoals.calories) * 100, 100)}%` }}></div>
+                      <span className="text-[9px] text-gray-400 absolute bottom-0">Вт</span>
+                    </div>
+                    <div className="flex-1 flex flex-col items-center h-full justify-end">
+                      <div className="w-full bg-gradient-to-t from-[#C96EFF] to-[#FF9ED6] rounded-t-md transition-all duration-300" style={{ height: `${Math.min((1310 / userGoals.calories) * 100, 100)}%` }}></div>
+                      <span className="text-[9px] text-gray-400 absolute bottom-0">Ср</span>
+                    </div>
                     <div className="flex-1 flex flex-col items-center h-full justify-end">
                       <div className="w-full bg-[#FF6EB4] rounded-t-md ring-4 ring-pink-100 transition-all duration-300" style={{ height: `${Math.min((totalCalories / userGoals.calories) * 100, 100)}%` }}></div>
                       <span className="text-[9px] font-bold text-[#FF6EB4] absolute bottom-0">Сьогодні</span>
@@ -557,16 +567,34 @@ export default function Home() {
                 )}
                 {statsMode === 'weeks' && (
                   <>
-                    <div className="flex-1 flex flex-col items-center h-full justify-end"><div className="w-full bg-gray-200 rounded-t-md" style={{ height: '85%' }}></div><span className="text-[9px] text-gray-400 absolute bottom-0">Т1</span></div>
-                    <div className="flex-1 flex flex-col items-center h-full justify-end"><div className="w-full bg-gradient-to-t from-[#C96EFF] to-[#FF9ED6] rounded-t-md" style={{ height: '78%' }}></div><span className="text-[9px] text-gray-400 absolute bottom-0">Т2</span></div>
-                    <div className="flex-1 flex flex-col items-center h-full justify-end"><div className="w-full bg-[#FF6EB4] rounded-t-md ring-4 ring-pink-100" style={{ height: '68%' }}></div><span className="text-[9px] font-bold text-[#FF6EB4] absolute bottom-0">Т3</span></div>
+                    <div className="flex-1 flex flex-col items-center h-full justify-end">
+                      <div className="w-full bg-gray-200 rounded-t-md transition-all duration-300" style={{ height: `${Math.min((1940 / userGoals.calories) * 100, 100)}%` }}></div>
+                      <span className="text-[9px] text-gray-400 absolute bottom-0">Т1</span>
+                    </div>
+                    <div className="flex-1 flex flex-col items-center h-full justify-end">
+                      <div className="w-full bg-gradient-to-t from-[#C96EFF] to-[#FF9ED6] rounded-t-md transition-all duration-300" style={{ height: `${Math.min((1810 / userGoals.calories) * 100, 100)}%` }}></div>
+                      <span className="text-[9px] text-gray-400 absolute bottom-0">Т2</span>
+                    </div>
+                    <div className="flex-1 flex flex-col items-center h-full justify-end">
+                      <div className="w-full bg-[#FF6EB4] rounded-t-md ring-4 ring-pink-100 transition-all duration-300" style={{ height: `${Math.min((1710 / userGoals.calories) * 100, 100)}%` }}></div>
+                      <span className="text-[9px] font-bold text-[#FF6EB4] absolute bottom-0">Т3</span>
+                    </div>
                   </>
                 )}
                 {statsMode === 'months' && (
                   <>
-                    <div className="flex-1 flex flex-col items-center h-full justify-end"><div className="w-full bg-gray-200 rounded-t-md" style={{ height: '90%' }}></div><span className="text-[9px] text-gray-400 absolute bottom-0">Бер</span></div>
-                    <div className="flex-1 flex flex-col items-center h-full justify-end"><div className="w-full bg-gradient-to-t from-[#C96EFF] to-[#FF9ED6] rounded-t-md" style={{ height: '75%' }}></div><span className="text-[9px] text-gray-400 absolute bottom-0">Кві</span></div>
-                    <div className="flex-1 flex flex-col items-center h-full justify-end"><div className="w-full bg-[#FF6EB4] rounded-t-md ring-4 ring-pink-100" style={{ height: '62%' }}></div><span className="text-[9px] font-bold text-[#FF6EB4] absolute bottom-0">Тра</span></div>
+                    <div className="flex-1 flex flex-col items-center h-full justify-end">
+                      <div className="w-full bg-gray-200 rounded-t-md transition-all duration-300" style={{ height: `${Math.min((1910 / userGoals.calories) * 100, 100)}%` }}></div>
+                      <span className="text-[9px] text-gray-400 absolute bottom-0">Бер</span>
+                    </div>
+                    <div className="flex-1 flex flex-col items-center h-full justify-end">
+                      <div className="w-full bg-gradient-to-t from-[#C96EFF] to-[#FF9ED6] rounded-t-md transition-all duration-300" style={{ height: `${Math.min((1850 / userGoals.calories) * 100, 100)}%` }}></div>
+                      <span className="text-[9px] text-gray-400 absolute bottom-0">Кві</span>
+                    </div>
+                    <div className="flex-1 flex flex-col items-center h-full justify-end">
+                      <div className="w-full bg-[#FF6EB4] rounded-t-md ring-4 ring-pink-100 transition-all duration-300" style={{ height: `${Math.min((1780 / userGoals.calories) * 100, 100)}%` }}></div>
+                      <span className="text-[9px] font-bold text-[#FF6EB4] absolute bottom-0">Тра</span>
+                    </div>
                   </>
                 )}
               </div>
