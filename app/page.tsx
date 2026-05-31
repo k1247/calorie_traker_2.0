@@ -255,7 +255,8 @@ export default function Home() {
     setActiveTab('manual');
   };
 
-  const handleDeleteFoodItem = async (id: number) => {
+  const handleDeleteFoodItem = async (id: number, name: string) => {
+    if (!confirm(`Видалити "${name}" зі списку за сьогодні?`)) return;
     await supabase.from('food_diary').delete().eq('id', id);
     setFoodList(foodList.filter(item => item.id !== id));
     fetchUserData();
@@ -505,7 +506,7 @@ export default function Home() {
                     </div>
                     <div className="flex items-center gap-2">
                       <span className="font-bold text-sm text-[#FF6EB4]">{item.cal}</span>
-                      <button onClick={() => handleDeleteFoodItem(item.id)} className="text-gray-300 hover:text-red-400 text-xs p-1">❌</button>
+                      <button onClick={() => handleDeleteFoodItem(item.id, item.name)} className="text-gray-300 hover:text-red-400 text-xs p-1">🗑️</button>
                     </div>
                   </div>
               ))}
