@@ -85,7 +85,6 @@ export default function Home() {
   // --- СТЕЙТИ ТА РЕФИ ДЛЯ СКАНЕРА ---
   const [isScanning, setIsScanning] = useState(false);
   const [scanMessage, setScanMessage] = useState('');
-  // Використовуємо any, щоб не імпортувати типи сканера на рівні файлу (захист від помилок Next.js)
   const codeReaderRef = useRef<any>(null);
 
   const getTodayDateString = () => {
@@ -128,7 +127,6 @@ export default function Home() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Вимикаємо камеру, якщо користувач пішов з вкладки "Сканер"
   useEffect(() => {
     if (activeTab !== 'scanner') {
       if (codeReaderRef.current) {
@@ -267,14 +265,22 @@ export default function Home() {
   // ════ РОБОТА З КАМЕРОЮ ТА ШТРИХКОДАМИ (ДИНАМІЧНИЙ ІМПОРТ) ════
   const startScanning = async () => {
     setIsScanning(true);
-    setScanMessage('Шукаю камеру...');
+    setScanMessage('Шукаю ідеальну камеру...');
     try {
-      // Динамічний імпорт запобігає помилці "window is not defined" під час SSR-збірки Vercel
       const ZXing = await import('@zxing/library');
       const codeReader = new ZXing.BrowserMultiFormatReader();
       codeReaderRef.current = codeReader;
       
-      codeReader.decodeFromVideoDevice(null, 'video-preview', (result) => {
+      const constraints = {
+        video: {
+          facingMode: 'environment',
+          width: { ideal: 1920, min: 640 },
+          height: { ideal: 1080, min: 480 },
+          advanced: [{ focusMode: 'continuous' } as any]
+        }
+      };
+
+      codeReader.decodeFromConstraints(constraints, 'video-preview', (result) => {
         if (result) {
           const barcode = result.getText();
           if (codeReaderRef.current) {
@@ -287,7 +293,7 @@ export default function Home() {
       });
     } catch (err) {
       console.error(err);
-      setScanMessage('Помилка доступу до камери.');
+      setScanMessage('Помилка доступу до камери або фокусу.');
     }
   };
 
@@ -513,7 +519,7 @@ export default function Home() {
                 <div className="w-full h-64 bg-slate-900 rounded-2xl relative overflow-hidden flex flex-col items-center justify-center border-2 border-dashed border-gray-700">
                   {isScanning ? (
                     <>
-                      <video id="video-preview" className="absolute inset-0 w-full h-full object-cover"></video>
+                      <video id="video-preview" playsInline muted autoPlay className="absolute inset-0 w-full h-full object-cover"></video>
                       <div className="absolute inset-0 border-[40px] border-black/50 z-10 pointer-events-none">
                         <div className="w-full h-full border-2 border-[#FF6EB4] rounded-xl relative shadow-[0_0_0_9999px_rgba(0,0,0,0.5)]">
                           <div className="absolute top-1/2 left-4 right-4 h-0.5 bg-[#FF6EB4]/50 animate-pulse"></div>
