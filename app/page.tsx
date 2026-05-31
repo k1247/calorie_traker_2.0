@@ -37,6 +37,15 @@ interface DayStat {
   carbs: number;
 }
 
+interface PeriodStat {
+  label: string;
+  calories: number;
+  protein: number;
+  fat: number;
+  carbs: number;
+  hasData: boolean;
+}
+
 export default function Home() {
   const [currentScreen, setCurrentScreen] = useState<'home' | 'add' | 'stats' | 'goals'>('home');
   const [activeTab, setActiveTab] = useState<'manual' | 'history' | 'scanner'>('manual');
@@ -59,7 +68,9 @@ export default function Home() {
   const [foodList, setFoodList] = useState<FoodItem[]>([]);
   const [historyDatabase, setHistoryDatabase] = useState<HistoryItem[]>([]);
   
-  const [weeklyStats, setWeeklyStats] = useState<DayStat[]>([]);
+  const [dailyStats, setDailyStats] = useState<DayStat[]>([]);
+  const [weeklyStatsData, setWeeklyStatsData] = useState<PeriodStat[]>([]);
+  const [monthlyStatsData, setMonthlyStatsData] = useState<PeriodStat[]>([]);
 
   const [searchQuery, setSearchQuery] = useState('');
   const [formData, setFormData] = useState({
@@ -114,7 +125,7 @@ export default function Home() {
     try {
       const todayStr = getTodayDateString();
 
-      // 1. Завантаження цілей
+      // 1. Цілі
       const { data: goalsData } = await supabase
         .from('user_goals')
         .select('calories, protein, fat, carbs')
@@ -126,7 +137,7 @@ export default function Home() {
         setGoalsInput(goalsData);
       }
 
-      // 2. Завантаження щоденника за СЬОГОДНІ
+      // 2. Сьогоднішні продукти
       const { data: diaryData } = await supabase
         .from('food_diary')
         .select('id, name, weight, calories, protein, fat, carbs, color, date')
@@ -148,13 +159,13 @@ export default function Home() {
         setFoodList(formattedList);
       }
 
-      // 3. Завантаження ВСІХ записів одним запитом (для графіка і історії)
+      // 3. Всі записи для загальної статистики (дні, тижні, місяці)
       const { data: allDiaryRecords } = await supabase
         .from('food_diary')
         .select('name, weight, calories, protein, fat, carbs, date')
         .eq('user_id', 'default_user');
 
-      // Створюємо структуру останніх 7 днів
+      // --- ПІДГОТОВКА ДАНИХ ДЛЯ ДНІВ ---
       const daysLog: DayStat[] = [];
       const weekdayLabels = ['Нд', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'];
       
@@ -174,6 +185,32 @@ export default function Home() {
         });
       }
 
+      // --- ПІДГОТОВКА ДАНИХ ДЛЯ ТИЖНІВ ТА МІСЯЦІВ ---
+      const todayDate = new Date();
+      todayDate.setHours(0, 0, 0, 0);
+
+      const weeksRaw = [
+        { label: 'Т1', calories: 0, protein: 0, fat: 0, carbs: 0 },
+        { label: 'Т2', calories: 0, protein: 0, fat: 0, carbs: 0 },
+        { label: 'Т3', calories: 0, protein: 0, fat: 0, carbs: 0 },
+      ];
+      const weekDaysSet = [new Set<string>(), new Set<string>(), new Set<string>()];
+
+      const monthNames = ['Січ', 'Лют', 'Бер', 'Кві', 'Тра', 'Чер', 'Лип', 'Сер', 'Вер', 'Жов', 'Лис', 'Гру'];
+      const currentMonthIndex = todayDate.getMonth();
+      const getMonthName = (offset: number) => {
+        let m = currentMonthIndex - offset;
+        if (m < 0) m += 12;
+        return monthNames[m];
+      };
+
+      const monthsRaw = [
+        { label: getMonthName(2), calories: 0, protein: 0, fat: 0, carbs: 0 },
+        { label: getMonthName(1), calories: 0, protein: 0, fat: 0, carbs: 0 },
+        { label: getMonthName(0), calories: 0, protein: 0, fat: 0, carbs: 0 },
+      ];
+      const monthDaysSet = [new Set<string>(), new Set<string>(), new Set<string>()];
+
       const uniqueProducts: { [key: string]: HistoryItem } = {};
       const defaultHistory = [
         { name: 'Куряча грудка', calories: 110, protein: 23, fat: 2, carbs: 0 },
@@ -183,18 +220,12 @@ export default function Home() {
       ];
       defaultHistory.forEach((p) => { uniqueProducts[p.name] = p; });
 
+      // ПАРСИНГ БАЗИ
       if (allDiaryRecords) {
         allDiaryRecords.forEach((record) => {
-          // Заповнюємо дні
-          const targetDay = daysLog.find(day => day.dateStr === record.date);
-          if (targetDay) {
-            targetDay.calories += record.calories || 0;
-            targetDay.protein += record.protein || 0;
-            targetDay.fat += record.fat || 0;
-            targetDay.carbs += record.carbs || 0;
-          }
+          if (!record.date) return;
 
-          // Заповнюємо історію унікальних продуктів
+          // Історія продуктів
           if (record.name && !uniqueProducts[record.name] && record.weight) {
             uniqueProducts[record.name] = {
               name: record.name,
@@ -204,10 +235,66 @@ export default function Home() {
               carbs: Math.round(((record.carbs || 0) / record.weight) * 100) || 0,
             };
           }
+
+          // Статистика ДНІВ
+          const targetDay = daysLog.find(day => day.dateStr === record.date);
+          if (targetDay) {
+            targetDay.calories += record.calories || 0;
+            targetDay.protein += record.protein || 0;
+            targetDay.fat += record.fat || 0;
+            targetDay.carbs += record.carbs || 0;
+          }
+
+          // Статистика ТИЖНІВ та МІСЯЦІВ
+          const [y, m, d] = record.date.split('-').map(Number);
+          const recordDate = new Date(y, m - 1, d);
+          
+          const diffDays = Math.floor((todayDate.getTime() - recordDate.getTime()) / (1000 * 60 * 60 * 24));
+          
+          // Тижні (Т3: 0-6 днів тому, Т2: 7-13, Т1: 14-20)
+          if (diffDays >= 0 && diffDays <= 20) {
+            let wIndex = 2; // T3
+            if (diffDays > 6 && diffDays <= 13) wIndex = 1; // T2
+            if (diffDays > 13) wIndex = 0; // T1
+            
+            weeksRaw[wIndex].calories += record.calories || 0;
+            weeksRaw[wIndex].protein += record.protein || 0;
+            weeksRaw[wIndex].fat += record.fat || 0;
+            weeksRaw[wIndex].carbs += record.carbs || 0;
+            weekDaysSet[wIndex].add(record.date);
+          }
+
+          // Місяці
+          const mDiff = (todayDate.getFullYear() - recordDate.getFullYear()) * 12 + (todayDate.getMonth() - recordDate.getMonth());
+          if (mDiff >= 0 && mDiff <= 2) {
+            let mIndex = 2 - mDiff; // 2: Поточний, 1: Минулий, 0: Позаминулий
+            monthsRaw[mIndex].calories += record.calories || 0;
+            monthsRaw[mIndex].protein += record.protein || 0;
+            monthsRaw[mIndex].fat += record.fat || 0;
+            monthsRaw[mIndex].carbs += record.carbs || 0;
+            monthDaysSet[mIndex].add(record.date);
+          }
         });
       }
 
-      setWeeklyStats(daysLog);
+      // ФОРМУВАННЯ СЕРЕДНІХ ЗНАЧЕНЬ
+      const calculateAverage = (rawStats: typeof weeksRaw, daysSets: Set<string>[]) => {
+        return rawStats.map((stat, idx) => {
+          const count = Math.max(1, daysSets[idx].size); // Захист від ділення на нуль
+          return {
+            label: stat.label,
+            calories: Math.round(stat.calories / count),
+            protein: Math.round(stat.protein / count),
+            fat: Math.round(stat.fat / count),
+            carbs: Math.round(stat.carbs / count),
+            hasData: daysSets[idx].size > 0
+          };
+        });
+      };
+
+      setDailyStats(daysLog);
+      setWeeklyStatsData(calculateAverage(weeksRaw, weekDaysSet));
+      setMonthlyStatsData(calculateAverage(monthsRaw, monthDaysSet));
       setHistoryDatabase(Object.values(uniqueProducts));
 
     } catch (e) {
@@ -254,7 +341,7 @@ export default function Home() {
       return;
     }
     setFoodList(foodList.filter(item => item.id !== id));
-    fetchUserData(); // Оновлюємо статистику
+    fetchUserData();
   };
 
   const handleDeleteFromHistory = async (name: string, e: React.MouseEvent) => {
@@ -319,7 +406,7 @@ export default function Home() {
     }
 
     setFormData({ name: '', calories: '', protein: '', fat: '', carbs: '', weight: '' });
-    fetchUserData(); // Оновлюємо графіки
+    fetchUserData();
     setCurrentScreen('home');
   };
 
@@ -373,11 +460,7 @@ export default function Home() {
     );
   }
 
-  const today = new Date().toLocaleDateString('uk-UA', {
-    weekday: 'long',
-    day: 'numeric',
-    month: 'long',
-  });
+  const today = new Date().toLocaleDateString('uk-UA', { weekday: 'long', day: 'numeric', month: 'long' });
 
   return (
     <div className="min-h-screen bg-slate-100 text-[#2D2D2D] p-4 flex justify-center items-center">
@@ -386,7 +469,6 @@ export default function Home() {
           <div className="w-16 h-1.5 bg-gray-200 rounded-full mt-2"></div>
         </div>
 
-        {/* ═══ ЕКРАН 1: СЬОГОДНІ ═══ */}
         {currentScreen === 'home' && (
           <div className="px-5 overflow-y-auto flex-grow bg-white">
             <div className="flex justify-between items-center my-4">
@@ -457,7 +539,6 @@ export default function Home() {
           </div>
         )}
 
-        {/* ═══ ЕКРАН 2: ДОДАВАННЯ ЇЖІ ═══ */}
         {currentScreen === 'add' && (
           <div className="px-5 overflow-y-auto flex-grow bg-white flex flex-col">
             <div className="my-4">
@@ -534,7 +615,6 @@ export default function Home() {
           </div>
         )}
 
-        {/* ═══ ЕКРАН 3: СТАТИСТИКА ═══ */}
         {currentScreen === 'stats' && (
           <div className="px-5 overflow-y-auto flex-grow bg-white flex flex-col">
             <div className="my-4 flex-shrink-0">
@@ -551,8 +631,8 @@ export default function Home() {
             <div className="bg-pink-50/10 border border-pink-100/30 rounded-2xl p-4 mb-4 flex-shrink-0 relative">
               <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider mb-4">
                 {statsMode === 'days' && 'Калорії за останні 7 днів'}
-                {statsMode === 'weeks' && 'Середнє по тижнях (Останні місяці)'}
-                {statsMode === 'months' && 'Динаміка по місяцях (Поточний рік)'}
+                {statsMode === 'weeks' && 'Середнє по тижнях'}
+                {statsMode === 'months' && 'Середнє по місяцях'}
               </p>
 
               <div className="h-28 flex items-end gap-3 relative pb-5 border-b border-gray-100">
@@ -562,8 +642,7 @@ export default function Home() {
                   </span>
                 </div>
 
-                {/* 📊 ЖИВИЙ ГРАФІК ДНІВ */}
-                {statsMode === 'days' && weeklyStats.map((day, idx) => (
+                {statsMode === 'days' && dailyStats.map((day, idx) => (
                   <div key={idx} className="flex-1 flex flex-col items-center h-full justify-end">
                     <div 
                       className={`w-full rounded-t-md transition-all duration-300 ${day.label === 'Сьогодні' ? 'bg-[#FF6EB4] ring-4 ring-pink-100 font-bold' : 'bg-gradient-to-t from-[#C96EFF] to-[#FF9ED6]'}`} 
@@ -575,89 +654,92 @@ export default function Home() {
                   </div>
                 ))}
 
-                {statsMode === 'weeks' && (
-                  <>
-                    <div className="flex-1 flex flex-col items-center h-full justify-end"><div className="w-full bg-gray-200 rounded-t-md transition-all duration-300" style={{ height: `${Math.min((1940 / userGoals.calories) * 100, 100)}%` }}></div><span className="text-[9px] text-gray-400 absolute bottom-0">Т1</span></div>
-                    <div className="flex-1 flex flex-col items-center h-full justify-end"><div className="w-full bg-gradient-to-t from-[#C96EFF] to-[#FF9ED6] rounded-t-md transition-all duration-300" style={{ height: `${Math.min((1810 / userGoals.calories) * 100, 100)}%` }}></div><span className="text-[9px] text-gray-400 absolute bottom-0">Т2</span></div>
-                    <div className="flex-1 flex flex-col items-center h-full justify-end"><div className="w-full bg-[#FF6EB4] rounded-t-md ring-4 ring-pink-100 transition-all duration-300" style={{ height: `${Math.min((1710 / userGoals.calories) * 100, 100)}%` }}></div><span className="text-[9px] font-bold text-[#FF6EB4] absolute bottom-0">Т3</span></div>
-                  </>
-                )}
-                {statsMode === 'months' && (
-                  <>
-                    <div className="flex-1 flex flex-col items-center h-full justify-end"><div className="w-full bg-gray-200 rounded-t-md transition-all duration-300" style={{ height: `${Math.min((1910 / userGoals.calories) * 100, 100)}%` }}></div><span className="text-[9px] text-gray-400 absolute bottom-0">Бер</span></div>
-                    <div className="flex-1 flex flex-col items-center h-full justify-end"><div className="w-full bg-gradient-to-t from-[#C96EFF] to-[#FF9ED6] rounded-t-md transition-all duration-300" style={{ height: `${Math.min((1850 / userGoals.calories) * 100, 100)}%` }}></div><span className="text-[9px] text-gray-400 absolute bottom-0">Кві</span></div>
-                    <div className="flex-1 flex flex-col items-center h-full justify-end"><div className="w-full bg-[#FF6EB4] rounded-t-md ring-4 ring-pink-100 transition-all duration-300" style={{ height: `${Math.min((1780 / userGoals.calories) * 100, 100)}%` }}></div><span className="text-[9px] font-bold text-[#FF6EB4] absolute bottom-0">Тра</span></div>
-                  </>
-                )}
+                {statsMode === 'weeks' && weeklyStatsData.map((week, idx) => (
+                  <div key={idx} className="flex-1 flex flex-col items-center h-full justify-end">
+                    <div 
+                      className={`w-full rounded-t-md transition-all duration-300 ${idx === 2 ? 'bg-[#FF6EB4] ring-4 ring-pink-100 font-bold' : 'bg-gradient-to-t from-[#C96EFF] to-[#FF9ED6]'}`} 
+                      style={{ height: `${Math.min((week.calories / userGoals.calories) * 100, 100)}%` }}
+                    ></div>
+                    <span className={`text-[9px] absolute bottom-0 ${idx === 2 ? 'font-bold text-[#FF6EB4]' : 'text-gray-400'}`}>
+                      {week.label}
+                    </span>
+                  </div>
+                ))}
+
+                {statsMode === 'months' && monthlyStatsData.map((month, idx) => (
+                  <div key={idx} className="flex-1 flex flex-col items-center h-full justify-end">
+                    <div 
+                      className={`w-full rounded-t-md transition-all duration-300 ${idx === 2 ? 'bg-[#FF6EB4] ring-4 ring-pink-100 font-bold' : 'bg-gradient-to-t from-[#C96EFF] to-[#FF9ED6]'}`} 
+                      style={{ height: `${Math.min((month.calories / userGoals.calories) * 100, 100)}%` }}
+                    ></div>
+                    <span className={`text-[9px] absolute bottom-0 ${idx === 2 ? 'font-bold text-[#FF6EB4]' : 'text-gray-400'}`}>
+                      {month.label}
+                    </span>
+                  </div>
+                ))}
               </div>
             </div>
 
-            <p className="text-[10px] font-bold tracking-wider text-gray-400 uppercase mb-2 flex-shrink-0">Історія записів</p>
+            <p className="text-[10px] font-bold tracking-wider text-gray-400 uppercase mb-2 flex-shrink-0">Детальна історія</p>
             <div className="flex-grow overflow-y-auto flex flex-col gap-2 pb-20">
               
-              {/* 📋 РЕАЛЬНИЙ СПИСОК ІСТОРІЇ */}
-              {statsMode === 'days' && (
-                weeklyStats.slice().reverse().map((day, idx) => (
-                  <div key={idx} className="bg-gray-50 border border-gray-100 p-3 rounded-xl">
-                    <div className="flex justify-between items-center mb-1">
-                      <span className="text-xs font-bold text-gray-700">
-                        {day.dateStr === getTodayDateString() ? 'Сьогодні (Підсумок)' : day.dateStr}
-                      </span>
-                      <span className={`text-xs font-black ${day.calories > 0 ? 'text-[#FF6EB4]' : 'text-gray-400'}`}>
-                        {day.calories} ккал
-                      </span>
-                    </div>
-                    <p className="text-[9px] text-gray-400">
-                      {day.calories > 0 
-                        ? `КБЖВ: Б: ${day.protein}г · Ж: ${day.fat}г · В: ${day.carbs}г`
-                        : 'У цей день записи відсутні'}
-                    </p>
+              {statsMode === 'days' && dailyStats.slice().reverse().map((day, idx) => (
+                <div key={idx} className="bg-gray-50 border border-gray-100 p-3 rounded-xl">
+                  <div className="flex justify-between items-center mb-1">
+                    <span className="text-xs font-bold text-gray-700">
+                      {day.dateStr === getTodayDateString() ? 'Сьогодні (Підсумок)' : day.dateStr}
+                    </span>
+                    <span className={`text-xs font-black ${day.calories > 0 ? 'text-[#FF6EB4]' : 'text-gray-400'}`}>
+                      {day.calories} ккал
+                    </span>
                   </div>
-                ))
-              )}
+                  <p className="text-[9px] text-gray-400">
+                    {day.calories > 0 
+                      ? `КБЖВ: Б: ${day.protein}г · Ж: ${day.fat}г · В: ${day.carbs}г`
+                      : 'У цей день записи відсутні'}
+                  </p>
+                </div>
+              ))}
 
-              {statsMode === 'weeks' && (
-                <>
-                  <div className="bg-gray-50 border border-gray-100 p-3 rounded-xl">
-                    <div className="flex justify-between items-center mb-1">
-                      <span className="text-xs font-bold text-gray-700">Поточний тиждень (Т3)</span>
-                      <span className="text-xs font-black text-[#FF6EB4]">1710 ккал/день</span>
-                    </div>
-                    <p className="text-[9px] text-gray-400">Середнє КБЖВ: Б: 92г · Ж: 61г · В: 185г</p>
+              {statsMode === 'weeks' && [...weeklyStatsData].reverse().map((week, idx) => (
+                <div key={idx} className="bg-gray-50 border border-gray-100 p-3 rounded-xl">
+                  <div className="flex justify-between items-center mb-1">
+                    <span className="text-xs font-bold text-gray-700">
+                      {idx === 0 ? 'Поточний тиждень (Т3)' : idx === 1 ? 'Минулий тиждень (Т2)' : 'Позаминулий тиждень (Т1)'}
+                    </span>
+                    <span className={`text-xs font-black ${week.hasData ? 'text-[#FF6EB4]' : 'text-gray-400'}`}>
+                      {week.calories} ккал/день
+                    </span>
                   </div>
-                  <div className="bg-gray-50 border border-gray-100 p-3 rounded-xl">
-                    <div className="flex justify-between items-center mb-1">
-                      <span className="text-xs font-bold text-gray-700">Минулий тиждень (Т2)</span>
-                      <span className="text-xs font-black text-gray-700">1940 ккал/день</span>
-                    </div>
-                    <p className="text-[9px] text-gray-400">Середнє КБЖВ: Б: 110г · Ж: 74г · В: 210г</p>
-                  </div>
-                </>
-              )}
+                  <p className="text-[9px] text-gray-400">
+                    {week.hasData 
+                      ? `Середнє КБЖВ: Б: ${week.protein}г · Ж: ${week.fat}г · В: ${week.carbs}г`
+                      : 'Записи відсутні'}
+                  </p>
+                </div>
+              ))}
 
-              {statsMode === 'months' && (
-                <>
-                  <div className="bg-gray-50 border border-gray-100 p-3 rounded-xl">
-                    <div className="flex justify-between items-center mb-1">
-                      <span className="text-xs font-bold text-gray-700">Поточний місяць</span>
-                      <span className="text-xs font-black text-[#FF6EB4]">1780 ккал/день</span>
-                    </div>
-                    <p className="text-[9px] text-gray-400">Середнє КБЖВ за місяць: Б: 104г · Ж: 65г · В: 202г</p>
+              {statsMode === 'months' && [...monthlyStatsData].reverse().map((month, idx) => (
+                <div key={idx} className="bg-gray-50 border border-gray-100 p-3 rounded-xl">
+                  <div className="flex justify-between items-center mb-1">
+                    <span className="text-xs font-bold text-gray-700">
+                      {idx === 0 ? 'Поточний місяць' : idx === 1 ? 'Минулий місяць' : 'Позаминулий місяць'}
+                    </span>
+                    <span className={`text-xs font-black ${month.hasData ? 'text-[#FF6EB4]' : 'text-gray-400'}`}>
+                      {month.calories} ккал/день
+                    </span>
                   </div>
-                  <div className="bg-gray-50 border border-gray-100 p-3 rounded-xl">
-                    <div className="flex justify-between items-center mb-1">
-                      <span className="text-xs font-bold text-gray-700">Минулий місяць</span>
-                      <span className="text-xs font-black text-gray-700">1910 ккал/день</span>
-                    </div>
-                    <p className="text-[9px] text-gray-400">Середнє КБЖВ за місяць: Б: 115г · Ж: 71г · В: 218г</p>
-                  </div>
-                </>
-              )}
+                  <p className="text-[9px] text-gray-400">
+                    {month.hasData 
+                      ? `Середнє КБЖВ: Б: ${month.protein}г · Ж: ${month.fat}г · В: ${month.carbs}г`
+                      : 'Записи відсутні'}
+                  </p>
+                </div>
+              ))}
             </div>
           </div>
         )}
 
-        {/* ═══ ЕКРАН 4: НАЛАШТУВАННЯ ЦІЛЕЙ ═══ */}
         {currentScreen === 'goals' && (
           <div className="px-5 overflow-y-auto flex-grow bg-white flex flex-col">
             <div className="my-4 flex-shrink-0">
