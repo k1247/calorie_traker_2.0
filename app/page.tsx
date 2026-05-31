@@ -2,7 +2,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from './supabase';
-import { BrowserMultiFormatReader } from '@zxing/library';
 
 declare global {
   interface Window {
@@ -86,7 +85,8 @@ export default function Home() {
   // --- СТЕЙТИ ТА РЕФИ ДЛЯ СКАНЕРА ---
   const [isScanning, setIsScanning] = useState(false);
   const [scanMessage, setScanMessage] = useState('');
-  const codeReaderRef = useRef<BrowserMultiFormatReader | null>(null);
+  // Використовуємо any, щоб не імпортувати типи сканера на рівні файлу (захист від помилок Next.js)
+  const codeReaderRef = useRef<any>(null);
 
   const getTodayDateString = () => {
     const tzoffset = (new Date()).getTimezoneOffset() * 60000;
@@ -125,12 +125,18 @@ export default function Home() {
     }, 1200);
 
     return () => clearTimeout(timeout);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Вимикаємо камеру, якщо користувач пішов з вкладки "Сканер"
   useEffect(() => {
-    if (activeTab !== 'scanner' && isScanning) {
-      stopScanning();
+    if (activeTab !== 'scanner') {
+      if (codeReaderRef.current) {
+        codeReaderRef.current.reset();
+        codeReaderRef.current = null;
+      }
+      setIsScanning(false);
+      setScanMessage('');
     }
   }, [activeTab]);
 
@@ -258,22 +264,29 @@ export default function Home() {
     setHistoryDatabase(historyDatabase.filter(item => item.name !== name));
   };
 
-  // ════ РОБОТА З КАМЕРОЮ ТА ШТРИХКОДАМИ ════
+  // ════ РОБОТА З КАМЕРОЮ ТА ШТРИХКОДАМИ (ДИНАМІЧНИЙ ІМПОРТ) ════
   const startScanning = async () => {
     setIsScanning(true);
     setScanMessage('Шукаю камеру...');
     try {
-      const codeReader = new BrowserMultiFormatReader();
+      // Динамічний імпорт запобігає помилці "window is not defined" під час SSR-збірки Vercel
+      const ZXing = await import('@zxing/library');
+      const codeReader = new ZXing.BrowserMultiFormatReader();
       codeReaderRef.current = codeReader;
       
-      codeReader.decodeFromVideoDevice(null, 'video-preview', (result, err) => {
+      codeReader.decodeFromVideoDevice(null, 'video-preview', (result) => {
         if (result) {
           const barcode = result.getText();
-          stopScanning();
+          if (codeReaderRef.current) {
+            codeReaderRef.current.reset();
+            codeReaderRef.current = null;
+          }
+          setIsScanning(false);
           lookupProduct(barcode);
         }
       });
     } catch (err) {
+      console.error(err);
       setScanMessage('Помилка доступу до камери.');
     }
   };
@@ -309,6 +322,7 @@ export default function Home() {
         setScanMessage('❌ Продукт не знайдено — введи вручну.');
       }
     } catch (e) {
+      console.error(e);
       setScanMessage('Помилка мережі при пошуку.');
     }
   };
@@ -499,10 +513,7 @@ export default function Home() {
                 <div className="w-full h-64 bg-slate-900 rounded-2xl relative overflow-hidden flex flex-col items-center justify-center border-2 border-dashed border-gray-700">
                   {isScanning ? (
                     <>
-                      {/* Відео потік камери */}
                       <video id="video-preview" className="absolute inset-0 w-full h-full object-cover"></video>
-                      
-                      {/* Рамка-видошукач */}
                       <div className="absolute inset-0 border-[40px] border-black/50 z-10 pointer-events-none">
                         <div className="w-full h-full border-2 border-[#FF6EB4] rounded-xl relative shadow-[0_0_0_9999px_rgba(0,0,0,0.5)]">
                           <div className="absolute top-1/2 left-4 right-4 h-0.5 bg-[#FF6EB4]/50 animate-pulse"></div>
@@ -547,7 +558,6 @@ export default function Home() {
             <div className="my-4 flex-shrink-0">
               <h1 className="text-xl font-bold text-[#2D2D2D]">Статистика</h1>
             </div>
-            {/* Статистика залишається без змін (твій код) */}
             <div className="flex gap-1 bg-gray-50 p-1 rounded-xl mb-4 flex-shrink-0">
               <button onClick={() => setStatsMode('days')} className={`flex-1 text-center py-1.5 rounded-lg text-xs font-bold transition-all ${statsMode === 'days' ? 'bg-[#FF6EB4] text-white shadow-sm' : 'text-gray-400'}`}>Дні</button>
               <button onClick={() => setStatsMode('weeks')} className={`flex-1 text-center py-1.5 rounded-lg text-xs font-bold transition-all ${statsMode === 'weeks' ? 'bg-[#FF6EB4] text-white shadow-sm' : 'text-gray-400'}`}>Тижні</button>
