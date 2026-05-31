@@ -59,7 +59,6 @@ export default function Home() {
   const [foodList, setFoodList] = useState<FoodItem[]>([]);
   const [historyDatabase, setHistoryDatabase] = useState<HistoryItem[]>([]);
   
-  // Реальна статистика по днях із бази даних
   const [weeklyStats, setWeeklyStats] = useState<DayStat[]>([]);
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -149,13 +148,13 @@ export default function Home() {
         setFoodList(formattedList);
       }
 
-      // 3. Генерація РЕАЛЬНОЇ статистики за останні 7 днів з бази даних
+      // 3. Завантаження ВСІХ записів одним запитом (для графіка і історії)
       const { data: allDiaryRecords } = await supabase
         .from('food_diary')
-        .select('calories, protein, fat, carbs, date')
+        .select('name, weight, calories, protein, fat, carbs, date')
         .eq('user_id', 'default_user');
 
-      // Створюємо структуру останніх 7 днів (включаючи сьогодні)
+      // Створюємо структуру останніх 7 днів
       const daysLog: DayStat[] = [];
       const weekdayLabels = ['Нд', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'];
       
@@ -175,21 +174,6 @@ export default function Home() {
         });
       }
 
-      // Агрегуємо дані з бази по днях
-      if (allDiaryRecords) {
-        allDiaryRecords.forEach(record => {
-          const targetDay = daysLog.find(day => day.dateStr === record.date);
-          if (targetDay) {
-            targetDay.calories += record.calories || 0;
-            targetDay.protein += record.protein || 0;
-            targetDay.fat += record.fat || 0;
-            targetDay.carbs += record.carbs || 0;
-          }
-        });
-      }
-      setWeeklyStats(daysLog);
-
-      // 4. Завантаження унікальних продуктів для вкладки "Історія"
       const uniqueProducts: { [key: string]: HistoryItem } = {};
       const defaultHistory = [
         { name: 'Куряча грудка', calories: 110, protein: 23, fat: 2, carbs: 0 },
@@ -200,40 +184,30 @@ export default function Home() {
       defaultHistory.forEach((p) => { uniqueProducts[p.name] = p; });
 
       if (allDiaryRecords) {
-        allDiaryRecords.forEach((item) => {
-          // Якщо продукт має назву (у попередньому запиті ми її не брали, додамо захист або візьмемо дефолтні)
-          if (item.name && !uniqueProducts[item.name] && item.weight) {
-            uniqueProducts[item.name] = {
-              name: item.name,
-              calories: Math.round((item.calories / item.weight) * 100) || 0,
-              protein: Math.round(((item.protein || 0) / item.weight) * 100) || 0,
-              fat: Math.round(((item.fat || 0) / item.weight) * 100) || 0,
-              carbs: Math.round(((item.carbs || 0) / item.weight) * 100) || 0,
-            };
+        allDiaryRecords.forEach((record) => {
+          // Заповнюємо дні
+          const targetDay = daysLog.find(day => day.dateStr === record.date);
+          if (targetDay) {
+            targetDay.calories += record.calories || 0;
+            targetDay.protein += record.protein || 0;
+            targetDay.fat += record.fat || 0;
+            targetDay.carbs += record.carbs || 0;
           }
-        });
-      }
-      
-      // Перевизначимо завантаження назв для історії, щоб воно працювало коректно
-      const { data: historyNames } = await supabase
-        .from('food_diary')
-        .select('name, weight, calories, protein, fat, carbs')
-        .eq('user_id', 'default_user');
-        
-      if (historyNames) {
-        historyNames.forEach(item => {
-          if (!uniqueProducts[item.name] && item.weight) {
-            uniqueProducts[item.name] = {
-              name: item.name,
-              calories: Math.round((item.calories / item.weight) * 100) || 0,
-              protein: Math.round(((item.protein || 0) / item.weight) * 100) || 0,
-              fat: Math.round(((item.fat || 0) / item.weight) * 100) || 0,
-              carbs: Math.round(((item.carbs || 0) / item.weight) * 100) || 0,
+
+          // Заповнюємо історію унікальних продуктів
+          if (record.name && !uniqueProducts[record.name] && record.weight) {
+            uniqueProducts[record.name] = {
+              name: record.name,
+              calories: Math.round((record.calories / record.weight) * 100) || 0,
+              protein: Math.round(((record.protein || 0) / record.weight) * 100) || 0,
+              fat: Math.round(((record.fat || 0) / record.weight) * 100) || 0,
+              carbs: Math.round(((record.carbs || 0) / record.weight) * 100) || 0,
             };
           }
         });
       }
 
+      setWeeklyStats(daysLog);
       setHistoryDatabase(Object.values(uniqueProducts));
 
     } catch (e) {
@@ -280,8 +254,7 @@ export default function Home() {
       return;
     }
     setFoodList(foodList.filter(item => item.id !== id));
-    // Оновлюємо також і стовпчики статистики
-    fetchUserData();
+    fetchUserData(); // Оновлюємо статистику
   };
 
   const handleDeleteFromHistory = async (name: string, e: React.MouseEvent) => {
@@ -346,7 +319,7 @@ export default function Home() {
     }
 
     setFormData({ name: '', calories: '', protein: '', fat: '', carbs: '', weight: '' });
-    fetchUserData(); // Перезавантажуємо все разом з оновленими стовпчиками
+    fetchUserData(); // Оновлюємо графіки
     setCurrentScreen('home');
   };
 
@@ -577,7 +550,7 @@ export default function Home() {
 
             <div className="bg-pink-50/10 border border-pink-100/30 rounded-2xl p-4 mb-4 flex-shrink-0 relative">
               <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider mb-4">
-                {statsMode === 'days' && 'Калорії за останні 7 реальних днів'}
+                {statsMode === 'days' && 'Калорії за останні 7 днів'}
                 {statsMode === 'weeks' && 'Середнє по тижнях (Останні місяці)'}
                 {statsMode === 'months' && 'Динаміка по місяцях (Поточний рік)'}
               </p>
@@ -589,7 +562,7 @@ export default function Home() {
                   </span>
                 </div>
 
-                {/* 📊 ЖИВИЙ ГРАФІК: ПОКАЗУЄ ТІЛЬКИ ТЕ, ЩО СУМАРНО ЛЕЖИТЬ В ТВОЇЙ БАЗІ ПО ДНЯХ */}
+                {/* 📊 ЖИВИЙ ГРАФІК ДНІВ */}
                 {statsMode === 'days' && weeklyStats.map((day, idx) => (
                   <div key={idx} className="flex-1 flex flex-col items-center h-full justify-end">
                     <div 
@@ -622,7 +595,7 @@ export default function Home() {
             <p className="text-[10px] font-bold tracking-wider text-gray-400 uppercase mb-2 flex-shrink-0">Історія записів</p>
             <div className="flex-grow overflow-y-auto flex flex-col gap-2 pb-20">
               
-              {/* 📋 СПИСОК: ПОКАЗУЄ ТІЛЬКИ РЕАЛЬНУ ІСТОРІЮ З БАЗИ, ДЕ КАЛОРІЇ БІЛЬШЕ 0 */}
+              {/* 📋 РЕАЛЬНИЙ СПИСОК ІСТОРІЇ */}
               {statsMode === 'days' && (
                 weeklyStats.slice().reverse().map((day, idx) => (
                   <div key={idx} className="bg-gray-50 border border-gray-100 p-3 rounded-xl">
