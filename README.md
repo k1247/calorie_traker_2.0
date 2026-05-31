@@ -83,7 +83,6 @@ export default function Home() {
     weight: '',
   });
 
-  // --- СТЕЙТИ ДЛЯ СКАНЕРА ТА КАМЕРИ ---
   const [isScanning, setIsScanning] = useState(false);
   const [scanMessage, setScanMessage] = useState('');
   const [availableCameras, setAvailableCameras] = useState<any[]>([]);
@@ -296,10 +295,10 @@ export default function Home() {
     }
   };
 
-  // ════ ОНОВЛЕНИЙ СКАНЕР З ПЕРЕМИКАННЯМ КАМЕР ДЛЯ ANDROID ════
-  const startScanning = async (camIndex = 0) => {
+  // ════ РОЗУМНИЙ СКАНЕР КАМЕРИ ════
+  const startScanning = async (overrideCamIndex: number | null = null) => {
     setIsScanning(true);
-    setScanMessage('Шукаю камеру...');
+    setScanMessage('Запуск камери...');
     try {
       const ZXing = await import('@zxing/library');
       const codeReader = new ZXing.BrowserMultiFormatReader();
@@ -317,28 +316,50 @@ export default function Home() {
       };
 
       if (isAndroid) {
-        // Отримуємо всі камери пристрою
         const devices = await codeReader.listVideoInputDevices();
-        // Відбираємо тільки задні лінзи
-        const backCams = devices.filter(d => 
-          d.label.toLowerCase().includes('back') || 
-          d.label.toLowerCase().includes('задня') || 
-          d.label.includes('0') || 
-          d.label.includes('1') || 
-          d.label.includes('2')
-        );
-        const targetCams = backCams.length > 0 ? backCams : devices;
-        setAvailableCameras(targetCams);
         
-        if (targetCams.length > 0) {
-          const safeIndex = camIndex % targetCams.length;
-          setCurrentCamIdx(safeIndex);
-          const selectedCam = targetCams[safeIndex];
-          
-          // Примусово додаємо deviceId разом з роздільною здатністю
+        // Шукаємо тільки задні камери, відкидаючи фронталки
+        const backCams = devices.filter(d => 
+          !d.label.toLowerCase().includes('front') && 
+          !d.label.toLowerCase().includes('фронт') && 
+          (d.label.toLowerCase().includes('back') || d.label.toLowerCase().includes('environment') || d.label.toLowerCase().includes('задня'))
+        );
+        
+        // Якщо за 'back' не знайшли, беремо всі, крім фронталки
+        const targetCams = backCams.length > 0 ? backCams : devices.filter(d => !d.label.toLowerCase().includes('front'));
+        const finalCams = targetCams.length > 0 ? targetCams : devices;
+        
+        setAvailableCameras(finalCams);
+
+        let selectedDeviceId: string | null = null;
+        
+        if (finalCams.length > 0) {
+          if (overrideCamIndex !== null) {
+            // Клік по кнопці "Змінити"
+            const safeIndex = overrideCamIndex % finalCams.length;
+            setCurrentCamIdx(safeIndex);
+            selectedDeviceId = finalCams[safeIndex].deviceId;
+            localStorage.setItem('vibe_tracker_preferred_cam', selectedDeviceId);
+          } else {
+            // Запуск вперше — перевіряємо пам'ять
+            const savedCamId = localStorage.getItem('vibe_tracker_preferred_cam');
+            const savedIdx = finalCams.findIndex(c => c.deviceId === savedCamId);
+            
+            if (savedIdx !== -1) {
+              // Знайшли збережену ідеальну камеру
+              setCurrentCamIdx(savedIdx);
+              selectedDeviceId = savedCamId;
+            } else {
+              // За замовчуванням беремо останню камеру (на Android це найчастіше найкраща лінза)
+              const defaultIdx = finalCams.length - 1;
+              setCurrentCamIdx(defaultIdx);
+              selectedDeviceId = finalCams[defaultIdx].deviceId;
+            }
+          }
+
           constraints = {
             video: {
-              deviceId: { exact: selectedCam.deviceId },
+              deviceId: { exact: selectedDeviceId },
               width: { ideal: 1920, min: 640 },
               height: { ideal: 1080, min: 480 },
               advanced: [{ focusMode: 'continuous' }]
@@ -356,7 +377,7 @@ export default function Home() {
       });
     } catch (err) {
       console.error(err);
-      setScanMessage('Помилка доступу до камери або фокусу.');
+      setScanMessage('Помилка доступу до камери.');
     }
   };
 
@@ -365,8 +386,7 @@ export default function Home() {
       codeReaderRef.current.reset();
       codeReaderRef.current = null;
     }
-    const nextIdx = currentCamIdx + 1;
-    startScanning(nextIdx);
+    startScanning(currentCamIdx + 1);
   };
 
   const stopScanning = () => {
@@ -589,7 +609,6 @@ export default function Home() {
 
                 {isScanning ? (
                   <div className="flex gap-2 w-full mt-2">
-                    {/* КНОПКА ПЕРЕМИКАННЯ КАМЕР (З'являється тільки на Android, якщо є > 1 лінзи) */}
                     {availableCameras.length > 1 && (
                       <button onClick={switchCamera} className="flex-1 bg-slate-200 text-gray-600 py-3 rounded-xl font-bold text-[10px] uppercase tracking-wider active:scale-95 shadow-sm border border-slate-300">
                         🔄 Інша ({currentCamIdx + 1}/{availableCameras.length})
@@ -600,7 +619,7 @@ export default function Home() {
                     </button>
                   </div>
                 ) : (
-                  <button onClick={() => startScanning(0)} className="w-full bg-[#FF6EB4] text-white py-3 rounded-xl font-bold text-xs uppercase tracking-wider mt-2 shadow-md active:scale-95">
+                  <button onClick={() => startScanning(null)} className="w-full bg-[#FF6EB4] text-white py-3 rounded-xl font-bold text-xs uppercase tracking-wider mt-2 shadow-md active:scale-95">
                     Почати сканування
                   </button>
                 )}
