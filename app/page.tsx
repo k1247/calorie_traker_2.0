@@ -60,7 +60,6 @@ export default function Home() {
     weight: '',
   });
 
-  // Отримуємо поточну дату у форматі YYYY-MM-DD (локальну)
   const getTodayDateString = () => {
     const tzoffset = (new Date()).getTimezoneOffset() * 60000;
     const localISOTime = (new Date(Date.now() - tzoffset)).toISOString().slice(0, 10);
@@ -104,7 +103,6 @@ export default function Home() {
     try {
       const todayStr = getTodayDateString();
 
-      // 1. Завантажуємо цілі
       const { data: goalsData } = await supabase
         .from('user_goals')
         .select('calories, protein, fat, carbs')
@@ -116,12 +114,11 @@ export default function Home() {
         setGoalsInput(goalsData);
       }
 
-      // 2. Завантажуємо щоденник тільки за СЬОГОДНІ для обнулення дня
       const { data: diaryData } = await supabase
         .from('food_diary')
         .select('id, name, weight, calories, protein, fat, carbs, color, date')
         .eq('user_id', 'default_user')
-        .eq('date', todayStr) // Фільтр чисто під сьогоднішній день
+        .eq('date', todayStr)
         .order('created_at', { ascending: false });
 
       if (diaryData) {
@@ -138,7 +135,6 @@ export default function Home() {
         setFoodList(formattedList);
       }
 
-      // 3. Завантажуємо ВСЮ історію продуктів (без фільтра по даті) для вкладки Історія
       const { data: allHistoryData } = await supabase
         .from('food_diary')
         .select('name, weight, calories, protein, fat, carbs')
@@ -170,12 +166,11 @@ export default function Home() {
 
     } catch (e) {
       console.error(e);
-    } finaly {
+    } finally {
       setLoading(false);
     }
   };
 
-  // Розрахунок фактично з'їденого за сьогодні
   const totalCalories = foodList.reduce((sum, item) => sum + item.cal, 0);
   const totalProtein = foodList.reduce((sum, item) => sum + item.protein, 0);
   const totalFat = foodList.reduce((sum, item) => sum + item.fat, 0);
@@ -202,7 +197,6 @@ export default function Home() {
     setActiveTab('manual');
   };
 
-  // ВИДАЛЕННЯ ЗАПИСУ ЗІ СЬОГОДНІШНЬОГО ДНЯ
   const handleDeleteFoodItem = async (id: number) => {
     const { error } = await supabase
       .from('food_diary')
@@ -216,9 +210,8 @@ export default function Home() {
     setFoodList(foodList.filter(item => item.id !== id));
   };
 
-  // ВИДАЛЕННЯ ПРОДУКТУ З ІСТОРІЇ НАЗАВЖДИ
   const handleDeleteFromHistory = async (name: string, e: React.MouseEvent) => {
-    e.stopPropagation(); // щоб не спрацьовував клік по всій картці
+    e.stopPropagation();
     if (!confirm(`Видалити "${name}" з історії пошуку?`)) return;
 
     const { error } = await supabase
@@ -268,7 +261,7 @@ export default function Home() {
           fat: calcFat,
           carbs: calcCarbs,
           color: '#FF6EB4',
-          date: todayStr // Записуємо реальну дату створення
+          date: todayStr
         },
       ])
       .select();
@@ -402,7 +395,7 @@ export default function Home() {
               </div>
               <div className="bg-pink-50/10 border border-pink-100/50 rounded-xl p-2.5 text-center">
                 <p className="text-[9px] text-gray-400 font-bold mb-0.5">Жири</p>
-                <p className="text-xs font-bold text-[#C96EFFিলেন]">{totalFat}г</p>
+                <p className="text-xs font-bold text-[#C96EFF]">{totalFat}г</p>
                 <div className="h-1 bg-gray-100 rounded-full mt-1 overflow-hidden">
                   <div className="h-full bg-[#C96EFF]" style={{ width: `${Math.min((totalFat / userGoals.fat) * 100, 100)}%` }}></div>
                 </div>
@@ -553,7 +546,6 @@ export default function Home() {
                     <div className="flex-1 flex flex-col items-center h-full justify-end"><div className="w-full bg-gradient-to-t from-[#C96EFF] to-[#FF9ED6] rounded-t-md" style={{ height: '70%' }}></div><span className="text-[9px] text-gray-400 absolute bottom-0">Пн</span></div>
                     <div className="flex-1 flex flex-col items-center h-full justify-end"><div className="w-full bg-gray-200 rounded-t-md" style={{ height: '82%' }}></div><span className="text-[9px] text-gray-400 absolute bottom-0">Вт</span></div>
                     <div className="flex-1 flex flex-col items-center h-full justify-end"><div className="w-full bg-gradient-to-t from-[#C96EFF] to-[#FF9ED6] rounded-t-md" style={{ height: '64%' }}></div><span className="text-[9px] text-gray-400 absolute bottom-0">Ср</span></div>
-                    {/* РЕАЛЬНИЙ СТОВПЧИК «СЬОГОДНІ» ЯКИЙ ЗАЛЕЖИТЬ ВІД ЗМІНИ НОРМИ */}
                     <div className="flex-1 flex flex-col items-center h-full justify-end">
                       <div className="w-full bg-[#FF6EB4] rounded-t-md ring-4 ring-pink-100 transition-all duration-300" style={{ height: `${Math.min((totalCalories / userGoals.calories) * 100, 100)}%` }}></div>
                       <span className="text-[9px] font-bold text-[#FF6EB4] absolute bottom-0">Сьогодні</span>
@@ -573,7 +565,7 @@ export default function Home() {
                 {statsMode === 'months' && (
                   <>
                     <div className="flex-1 flex flex-col items-center h-full justify-end"><div className="w-full bg-gray-200 rounded-t-md" style={{ height: '90%' }}></div><span className="text-[9px] text-gray-400 absolute bottom-0">Бер</span></div>
-                    <div className="flex-1 flex flex-col items-center h-full justify-end"><div className="w-full bg-gradient-to-t from-[#C96EFF] to-[#FF9ED6] rounded-t-md" style={{ height: '75%' }}></div><span className="text-[9px] text-gray-400 absolute bottom-0">Kві</span></div>
+                    <div className="flex-1 flex flex-col items-center h-full justify-end"><div className="w-full bg-gradient-to-t from-[#C96EFF] to-[#FF9ED6] rounded-t-md" style={{ height: '75%' }}></div><span className="text-[9px] text-gray-400 absolute bottom-0">Кві</span></div>
                     <div className="flex-1 flex flex-col items-center h-full justify-end"><div className="w-full bg-[#FF6EB4] rounded-t-md ring-4 ring-pink-100" style={{ height: '62%' }}></div><span className="text-[9px] font-bold text-[#FF6EB4] absolute bottom-0">Тра</span></div>
                   </>
                 )}
@@ -584,7 +576,6 @@ export default function Home() {
             <div className="flex-grow overflow-y-auto flex flex-col gap-2 pb-20">
               {statsMode === 'days' && (
                 <>
-                  {/* ВИПРАВЛЕНО: Замість ліній КБЖВ тут тепер статичні підписи з цифрами */}
                   <div className="bg-gray-50 border border-gray-100 p-3 rounded-xl">
                     <div className="flex justify-between items-center mb-1">
                       <span className="text-xs font-bold text-gray-700">Сьогодні (Підсумок)</span>
@@ -621,7 +612,6 @@ export default function Home() {
               )}
               {statsMode === 'months' && (
                 <>
-                  {/* ВИПРАВЛЕНО: На місяцях також прибрали лінії і поставили текстовий підпис КБЖВ */}
                   <div className="bg-gray-50 border border-gray-100 p-3 rounded-xl">
                     <div className="flex justify-between items-center mb-1">
                       <span className="text-xs font-bold text-gray-700">Поточний місяць</span>
