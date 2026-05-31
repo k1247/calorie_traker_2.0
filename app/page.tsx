@@ -87,14 +87,14 @@ export default function Home() {
   const [scanMessage, setScanMessage] = useState('');
   const codeReaderRef = useRef<any>(null);
 
-  // 2. УТИЛІТИ (оголошені ДО їх використання)
+  // 2. УТИЛІТИ 
   const getTodayDateString = () => {
     const tzoffset = (new Date()).getTimezoneOffset() * 60000;
     const localISOTime = (new Date(Date.now() - tzoffset)).toISOString().slice(0, 10);
     return localISOTime;
   };
 
-  // 3. ГОЛОВНА ФУНКЦІЯ ЗАВАНТАЖЕННЯ ДАНИХ (оголошена ДО useEffect)
+  // 3. ГОЛОВНА ФУНКЦІЯ ЗАВАНТАЖЕННЯ ДАНИХ
   const fetchUserData = async () => {
     try {
       const todayStr = getTodayDateString();
@@ -207,7 +207,7 @@ export default function Home() {
           setIsAuthorized(true);
           setUserId(tgId.toString());
           setUserName(tgUser.first_name || 'Користувач');
-          fetchUserData(); // Тепер компілятор бачить цю функцію
+          fetchUserData();
           return;
         }
       }
@@ -305,7 +305,8 @@ export default function Home() {
 
       if (isAndroid) {
         const devices = await codeReader.listVideoInputDevices();
-        let selectedDeviceId = undefined;
+        // ТУТ ВИПРАВЛЕНО undefined НА null
+        let selectedDeviceId: string | null = null;
         
         if (devices.length > 0) {
           const backCams = devices.filter(d => 
@@ -320,7 +321,8 @@ export default function Home() {
           }
         }
 
-        codeReader.decodeFromVideoDevice(selectedDeviceId, 'video-preview', (result) => {
+        // ДОДАНО :any до result
+        codeReader.decodeFromVideoDevice(selectedDeviceId, 'video-preview', (result: any) => {
           if (result) {
             const barcode = result.getText();
             if (codeReaderRef.current) {
@@ -342,7 +344,7 @@ export default function Home() {
           }
         };
 
-        codeReader.decodeFromConstraints(constraints, 'video-preview', (result) => {
+        codeReader.decodeFromConstraints(constraints, 'video-preview', (result: any) => {
           if (result) {
             const barcode = result.getText();
             if (codeReaderRef.current) {
@@ -400,6 +402,7 @@ export default function Home() {
         <div className="bg-slate-800 rounded-[30px] p-8 text-center shadow-2xl border border-slate-700 w-full max-w-[320px]">
           <div className="text-5xl mb-4">⛔️</div>
           <h1 className="text-xl font-bold text-white mb-2">Доступ закрито</h1>
+          <p className="text-xs text-gray-400 mb-4">Цей щоденник є приватним.</p>
           <div className="bg-slate-950 p-3 rounded-xl text-left font-mono text-[10px] text-pink-400 border border-slate-800">
             <p>ℹ️ ДІАГНОСТИКА:</p>
             <p>• Твій ТГ ID: <span className="text-white font-bold">{userId || 'НЕ ЗНАЙДЕНО'}</span></p>
@@ -672,42 +675,4 @@ export default function Home() {
             <div className="flex flex-col gap-3">
               <div className="bg-gray-50 border border-gray-100 rounded-xl p-2.5">
                 <label className="text-[9px] uppercase font-bold text-gray-400 block mb-0.5">Норма калорій (ккал)</label>
-                <input type="number" value={goalsInput.calories} onChange={(e) => setGoalsInput({ ...goalsInput, calories: Number(e.target.value) })} className="w-full bg-transparent text-sm font-bold outline-none text-gray-700" />
-              </div>
-              <div className="flex gap-2">
-                <div className="bg-gray-50 border border-gray-100 rounded-xl p-2.5 flex-1">
-                  <label className="text-[9px] uppercase font-bold text-[#FF9ED6] block mb-0.5">Білки (г)</label>
-                  <input type="number" value={goalsInput.protein} onChange={(e) => setGoalsInput({ ...goalsInput, protein: Number(e.target.value) })} className="w-full bg-transparent text-sm font-bold outline-none text-gray-700" />
-                </div>
-                <div className="bg-gray-50 border border-gray-100 rounded-xl p-2.5 flex-1">
-                  <label className="text-[9px] uppercase font-bold text-[#C96EFF] block mb-0.5">Жири (г)</label>
-                  <input type="number" value={goalsInput.fat} onChange={(e) => setGoalsInput({ ...goalsInput, fat: Number(e.target.value) })} className="w-full bg-transparent text-sm font-bold outline-none text-gray-700" />
-                </div>
-                <div className="bg-gray-50 border border-gray-100 rounded-xl p-2.5 flex-1">
-                  <label className="text-[9px] uppercase font-bold text-[#FF6EB4] block mb-0.5">Вуглеводи (г)</label>
-                  <input type="number" value={goalsInput.carbs} onChange={(e) => setGoalsInput({ ...goalsInput, carbs: Number(e.target.value) })} className="w-full bg-transparent text-sm font-bold outline-none text-gray-700" />
-                </div>
-              </div>
-              <div className="bg-pink-50/10 border border-pink-100/40 rounded-xl p-3 mt-1">
-                <p className="text-[9px] font-bold text-[#FF6EB4] uppercase tracking-wider mb-2">Розподіл БЖВ</p>
-                <div className="h-2 w-full bg-gray-100 rounded-full overflow-hidden flex gap-0.5">
-                  <div className="h-full bg-[#FF9ED6]" style={{ width: `${pPct}%` }}></div><div className="h-full bg-[#C96EFF]" style={{ width: `${fPct}%` }}></div><div className="h-full bg-[#FF6EB4]" style={{ width: `${cPct}%` }}></div>
-                </div>
-                <div className="flex justify-between text-[9px] font-bold text-gray-400 mt-1.5"><span>Б: {pPct}%</span><span>Ж: {fPct}%</span><span>В: {cPct}%</span></div>
-              </div>
-              <button onClick={handleSaveGoals} className="w-full bg-[#FF6EB4] text-white py-3 rounded-2xl font-bold text-xs mt-2 uppercase tracking-wider shadow-sm active:scale-95">Зберегти норми</button>
-            </div>
-          </div>
-        )}
-
-        {/* НАВІГАЦІЯ */}
-        <div className="absolute bottom-0 w-full border-t border-gray-100 flex justify-around py-3 bg-white text-gray-300 text-[10px] font-bold flex-shrink-0 shadow-[0_-10px_40px_rgba(0,0,0,0.03)] z-50 rounded-b-[40px]">
-          <button onClick={() => setCurrentScreen('home')} className={`flex flex-col items-center ${currentScreen === 'home' ? 'text-[#FF6EB4]' : 'opacity-40'}`}><span>🏠</span><span>Сьогодні</span></button>
-          <button onClick={() => setCurrentScreen('add')} className={`flex flex-col items-center ${currentScreen === 'add' ? 'text-[#FF6EB4]' : 'opacity-40'}`}><span>➕</span><span>Додати</span></button>
-          <button onClick={() => setCurrentScreen('stats')} className={`flex flex-col items-center ${currentScreen === 'stats' ? 'text-[#FF6EB4]' : 'opacity-40'}`}><span>📊</span><span>Статистика</span></button>
-          <button onClick={() => setCurrentScreen('goals')} className={`flex flex-col items-center ${currentScreen === 'goals' ? 'text-[#FF6EB4]' : 'opacity-40'}`}><span>🎯</span><span>Цілі</span></button>
-        </div>
-      </div>
-    </div>
-  );
-}
+                <input type="number" value={goalsInput.calories}
