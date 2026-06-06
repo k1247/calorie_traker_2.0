@@ -442,17 +442,21 @@ export default function Home() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-100 text-[#2D2D2D] p-4 flex justify-center items-center">
-      <div className="w-[360px] h-[740px] bg-white rounded-[40px] border border-[#FF85B2]/20 overflow-hidden shadow-xl relative flex flex-col justify-between">
+    // Фіксуємо обгортку, щоб вона займала весь екран і блокувала небажаний скрол на мобілках
+    <div className="fixed inset-0 bg-slate-100 text-[#2D2D2D] sm:p-4 flex justify-center items-center overflow-hidden">
+      
+      {/* Контейнер додатку тепер гнучкий: 100% на телефоні, і макс. розміри на десктопі */}
+      <div className="w-full h-full sm:w-[360px] sm:max-h-[740px] bg-white sm:rounded-[40px] border border-[#FF85B2]/20 overflow-hidden shadow-xl flex flex-col relative">
         
-        {/* Хедер додатку */}
+        {/* Хедер додатку (шторка) */}
         <div className="h-6 w-full flex items-center justify-center bg-white flex-shrink-0">
           <div className="w-16 h-1.5 bg-gray-200 rounded-full mt-2"></div>
         </div>
 
         {/* ═══ ЕКРАН 1: СЬОГОДНІ ═══ */}
         {currentScreen === 'home' && (
-          <div className="px-5 overflow-y-auto flex-grow bg-white pb-20">
+          // Змінено pb-20 на pb-6, оскільки навігація більше не "літає" поверх контенту
+          <div className="px-5 overflow-y-auto flex-grow bg-white pb-6">
             <div className="flex justify-between items-center my-4">
               <div>
                 <h1 className="text-xl font-bold text-[#2D2D2D]">Привіт, {userName}! 👋</h1>
@@ -504,7 +508,8 @@ export default function Home() {
                   </div>
               ))}
             </div>
-            <button onClick={() => setCurrentScreen('add')} className="absolute bottom-20 right-5 w-12 h-12 rounded-2xl bg-[#FF6EB4] flex items-center justify-center text-white font-bold text-2xl shadow-lg active:scale-95">+</button>
+            {/* Кнопка "Додати" тепер позиціонується відносно всього контейнера */}
+            <button onClick={() => setCurrentScreen('add')} className="absolute bottom-[75px] right-5 w-12 h-12 rounded-2xl bg-[#FF6EB4] flex items-center justify-center text-white font-bold text-2xl shadow-lg active:scale-95">+</button>
           </div>
         )}
 
@@ -522,7 +527,7 @@ export default function Home() {
             </div>
 
             {activeTab === 'manual' && (
-              <div className="flex flex-col gap-2.5 pb-20">
+              <div className="flex flex-col gap-2.5 pb-6">
                 <div className="bg-gray-50 border border-gray-100 rounded-xl p-2.5">
                   <label className="text-[9px] uppercase font-bold text-gray-400 block mb-0.5">Назва</label>
                   <input type="text" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} placeholder="Банан" className="w-full bg-transparent text-xs outline-none text-gray-700" />
@@ -556,7 +561,7 @@ export default function Home() {
             )}
 
             {activeTab === 'history' && (
-              <div className="flex flex-col flex-grow overflow-hidden pb-20">
+              <div className="flex flex-col flex-grow overflow-hidden pb-6">
                 <input type="text" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} placeholder="🔍 Пошук..." className="w-full bg-gray-50 border border-gray-100 rounded-xl p-2.5 text-xs outline-none text-gray-700 mb-3" />
                 <div className="flex-grow overflow-y-auto flex flex-col gap-2">
                   {filteredHistory.map((item, idx) => (
@@ -576,8 +581,8 @@ export default function Home() {
             )}
 
             {activeTab === 'scanner' && (
-              <div className="flex flex-col gap-4 items-center flex-grow pb-20 pt-4">
-                <div className="w-full h-64 bg-slate-900 rounded-2xl relative overflow-hidden flex flex-col items-center justify-center border-2 border-dashed border-gray-700">
+              <div className="flex flex-col gap-4 items-center flex-grow pb-6 pt-4">
+                <div className="w-full h-64 flex-shrink-0 bg-slate-900 rounded-2xl relative overflow-hidden flex flex-col items-center justify-center border-2 border-dashed border-gray-700">
                   {isScanning ? (
                     <>
                       <video id="video-preview" playsInline muted autoPlay className="absolute inset-0 w-full h-full object-cover"></video>
@@ -628,7 +633,7 @@ export default function Home() {
 
         {/* ═══ ЕКРАН 3: СТАТИСТИКА ═══ */}
         {currentScreen === 'stats' && (
-          <div className="px-5 overflow-y-auto flex-grow bg-white flex flex-col pb-20">
+          <div className="px-5 overflow-y-auto flex-grow bg-white flex flex-col pb-6">
             <div className="my-4 flex-shrink-0">
               <h1 className="text-xl font-bold text-[#2D2D2D]">Статистика</h1>
             </div>
@@ -644,19 +649,19 @@ export default function Home() {
                 </div>
                 {statsMode === 'days' && dailyStats.map((day, idx) => (
                   <div key={idx} className="flex-1 flex flex-col items-center h-full justify-end">
-                    <div className={`w-full rounded-t-md transition-all duration-300 ${day.label === 'Сьогодні' ? 'bg-[#FF6EB4] ring-4 ring-pink-100' : 'bg-gradient-to-t from-[#C96EFF] to-[#FF9ED6]'}`} style={{ height: `${Math.min((day.calories / userGoals.calories) * 70, 100)}%` }}></div>
+                    <div className={`w-full rounded-t-md transition-all duration-300 ${day.label === 'Сьогодні' ? 'bg-[#FF6EB4] ring-4 ring-pink-100' : 'bg-gradient-to-t from-[#C96EFF] to-[#FF9ED6]'}`} style={{ height: `${Math.min((day.calories / userGoals.calories) * 75, 100)}%` }}></div>
                     <span className={`text-[9px] absolute bottom-0 ${day.label === 'Сьогодні' ? 'font-bold text-[#FF6EB4]' : 'text-gray-400'}`}>{day.label}</span>
                   </div>
                 ))}
                 {statsMode === 'weeks' && weeklyStatsData.map((week, idx) => (
                   <div key={idx} className="flex-1 flex flex-col items-center h-full justify-end">
-                    <div className={`w-full rounded-t-md transition-all duration-300 ${idx === 2 ? 'bg-[#FF6EB4] ring-4 ring-pink-100' : 'bg-gradient-to-t from-[#C96EFF] to-[#FF9ED6]'}`} style={{ height: `${Math.min((week.calories / userGoals.calories) * 70, 100)}%` }}></div>
+                    <div className={`w-full rounded-t-md transition-all duration-300 ${idx === 2 ? 'bg-[#FF6EB4] ring-4 ring-pink-100' : 'bg-gradient-to-t from-[#C96EFF] to-[#FF9ED6]'}`} style={{ height: `${Math.min((week.calories / userGoals.calories) * 75, 100)}%` }}></div>
                     <span className={`text-[9px] absolute bottom-0 ${idx === 2 ? 'font-bold text-[#FF6EB4]' : 'text-gray-400'}`}>{week.label}</span>
                   </div>
                 ))}
                 {statsMode === 'months' && monthlyStatsData.map((month, idx) => (
                   <div key={idx} className="flex-1 flex flex-col items-center h-full justify-end">
-                    <div className={`w-full rounded-t-md transition-all duration-300 ${idx === 2 ? 'bg-[#FF6EB4] ring-4 ring-pink-100' : 'bg-gradient-to-t from-[#C96EFF] to-[#FF9ED6]'}`} style={{ height: `${Math.min((month.calories / userGoals.calories) * 70, 100)}%` }}></div>
+                    <div className={`w-full rounded-t-md transition-all duration-300 ${idx === 2 ? 'bg-[#FF6EB4] ring-4 ring-pink-100' : 'bg-gradient-to-t from-[#C96EFF] to-[#FF9ED6]'}`} style={{ height: `${Math.min((month.calories / userGoals.calories) * 75, 100)}%` }}></div>
                     <span className={`text-[9px] absolute bottom-0 ${idx === 2 ? 'font-bold text-[#FF6EB4]' : 'text-gray-400'}`}>{month.label}</span>
                   </div>
                 ))}
@@ -696,7 +701,7 @@ export default function Home() {
 
         {/* ═══ ЕКРАН 4: НАЛАШТУВАННЯ ЦІЛЕЙ ═══ */}
         {currentScreen === 'goals' && (
-          <div className="px-5 overflow-y-auto flex-grow bg-white flex flex-col pb-20">
+          <div className="px-5 overflow-y-auto flex-grow bg-white flex flex-col pb-6">
             <div className="my-4 flex-shrink-0">
               <h1 className="text-xl font-bold text-[#2D2D2D]">Мої цілі</h1>
             </div>
@@ -731,8 +736,8 @@ export default function Home() {
           </div>
         )}
 
-        {/* НАВІГАЦІЯ */}
-        <div className="absolute bottom-0 w-full border-t border-gray-100 flex justify-around py-3 bg-white text-gray-300 text-[10px] font-bold flex-shrink-0 shadow-[0_-10px_40px_rgba(0,0,0,0.03)] z-50 rounded-b-[40px]">
+        {/* НАВІГАЦІЯ: Більше не absolute! Вона стала частиною потоку, тому контент не залазить під неї */}
+        <div className="w-full bg-white border-t border-gray-100 flex justify-around py-3 text-gray-300 text-[10px] font-bold flex-shrink-0 z-50 sm:rounded-b-[40px]">
           <button onClick={() => setCurrentScreen('home')} className={`flex flex-col items-center ${currentScreen === 'home' ? 'text-[#FF6EB4]' : 'opacity-40'}`}><span>🏠</span><span>Сьогодні</span></button>
           <button onClick={() => setCurrentScreen('add')} className={`flex flex-col items-center ${currentScreen === 'add' ? 'text-[#FF6EB4]' : 'opacity-40'}`}><span>➕</span><span>Додати</span></button>
           <button onClick={() => setCurrentScreen('stats')} className={`flex flex-col items-center ${currentScreen === 'stats' ? 'text-[#FF6EB4]' : 'opacity-40'}`}><span>📊</span><span>Статистика</span></button>
