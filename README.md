@@ -296,7 +296,6 @@ export default function Home() {
     }
   };
 
-  // ════ РОЗУМНИЙ СКАНЕР КАМЕРИ ════
   const startScanning = async (overrideCamIndex: number | null = null) => {
     setIsScanning(true);
     setScanMessage('Запуск камери...');
@@ -319,14 +318,12 @@ export default function Home() {
       if (isAndroid) {
         const devices = await codeReader.listVideoInputDevices();
         
-        // Шукаємо тільки задні камери, відкидаючи фронталки
         const backCams = devices.filter(d => 
           !d.label.toLowerCase().includes('front') && 
           !d.label.toLowerCase().includes('фронт') && 
           (d.label.toLowerCase().includes('back') || d.label.toLowerCase().includes('environment') || d.label.toLowerCase().includes('задня'))
         );
         
-        // Якщо за 'back' не знайшли, беремо всі, крім фронталки
         const targetCams = backCams.length > 0 ? backCams : devices.filter(d => !d.label.toLowerCase().includes('front'));
         const finalCams = targetCams.length > 0 ? targetCams : devices;
         
@@ -336,22 +333,18 @@ export default function Home() {
         
         if (finalCams.length > 0) {
           if (overrideCamIndex !== null) {
-            // Клік по кнопці "Змінити"
             const safeIndex = overrideCamIndex % finalCams.length;
             setCurrentCamIdx(safeIndex);
             selectedDeviceId = finalCams[safeIndex].deviceId;
             localStorage.setItem('vibe_tracker_preferred_cam', selectedDeviceId);
           } else {
-            // Запуск вперше — перевіряємо пам'ять
             const savedCamId = localStorage.getItem('vibe_tracker_preferred_cam');
             const savedIdx = finalCams.findIndex(c => c.deviceId === savedCamId);
             
             if (savedIdx !== -1) {
-              // Знайшли збережену ідеальну камеру
               setCurrentCamIdx(savedIdx);
               selectedDeviceId = savedCamId;
             } else {
-              // За замовчуванням беремо останню камеру (на Android це найчастіше найкраща лінза)
               const defaultIdx = finalCams.length - 1;
               setCurrentCamIdx(defaultIdx);
               selectedDeviceId = finalCams[defaultIdx].deviceId;
@@ -646,24 +639,24 @@ export default function Home() {
             </div>
             <div className="bg-pink-50/10 border border-pink-100/30 rounded-2xl p-4 mb-4 flex-shrink-0 relative">
               <div className="h-28 flex items-end gap-3 relative pb-5 border-b border-gray-100">
-                <div className="absolute left-0 right-0 border-t border-dashed border-[#FF85B2]/40" style={{ bottom: '75px' }}>
+                <div className="absolute left-0 right-0 border-t border-dashed border-[#FF85B2]/40" style={{ bottom: '75%' }}>
                   <span className="absolute right-0 -top-3.5 text-[8px] font-bold text-[#FF6EB4] bg-white px-1">{userGoals.calories} ккал</span>
                 </div>
                 {statsMode === 'days' && dailyStats.map((day, idx) => (
                   <div key={idx} className="flex-1 flex flex-col items-center h-full justify-end">
-                    <div className={`w-full rounded-t-md transition-all duration-300 ${day.label === 'Сьогодні' ? 'bg-[#FF6EB4] ring-4 ring-pink-100' : 'bg-gradient-to-t from-[#C96EFF] to-[#FF9ED6]'}`} style={{ height: `${Math.min((day.calories / userGoals.calories) * 100, 100)}%` }}></div>
+                    <div className={`w-full rounded-t-md transition-all duration-300 ${day.label === 'Сьогодні' ? 'bg-[#FF6EB4] ring-4 ring-pink-100' : 'bg-gradient-to-t from-[#C96EFF] to-[#FF9ED6]'}`} style={{ height: `${Math.min((day.calories / userGoals.calories) * 70, 100)}%` }}></div>
                     <span className={`text-[9px] absolute bottom-0 ${day.label === 'Сьогодні' ? 'font-bold text-[#FF6EB4]' : 'text-gray-400'}`}>{day.label}</span>
                   </div>
                 ))}
                 {statsMode === 'weeks' && weeklyStatsData.map((week, idx) => (
                   <div key={idx} className="flex-1 flex flex-col items-center h-full justify-end">
-                    <div className={`w-full rounded-t-md transition-all duration-300 ${idx === 2 ? 'bg-[#FF6EB4] ring-4 ring-pink-100' : 'bg-gradient-to-t from-[#C96EFF] to-[#FF9ED6]'}`} style={{ height: `${Math.min((week.calories / userGoals.calories) * 100, 100)}%` }}></div>
+                    <div className={`w-full rounded-t-md transition-all duration-300 ${idx === 2 ? 'bg-[#FF6EB4] ring-4 ring-pink-100' : 'bg-gradient-to-t from-[#C96EFF] to-[#FF9ED6]'}`} style={{ height: `${Math.min((week.calories / userGoals.calories) * 70, 100)}%` }}></div>
                     <span className={`text-[9px] absolute bottom-0 ${idx === 2 ? 'font-bold text-[#FF6EB4]' : 'text-gray-400'}`}>{week.label}</span>
                   </div>
                 ))}
                 {statsMode === 'months' && monthlyStatsData.map((month, idx) => (
                   <div key={idx} className="flex-1 flex flex-col items-center h-full justify-end">
-                    <div className={`w-full rounded-t-md transition-all duration-300 ${idx === 2 ? 'bg-[#FF6EB4] ring-4 ring-pink-100' : 'bg-gradient-to-t from-[#C96EFF] to-[#FF9ED6]'}`} style={{ height: `${Math.min((month.calories / userGoals.calories) * 100, 100)}%` }}></div>
+                    <div className={`w-full rounded-t-md transition-all duration-300 ${idx === 2 ? 'bg-[#FF6EB4] ring-4 ring-pink-100' : 'bg-gradient-to-t from-[#C96EFF] to-[#FF9ED6]'}`} style={{ height: `${Math.min((month.calories / userGoals.calories) * 70, 100)}%` }}></div>
                     <span className={`text-[9px] absolute bottom-0 ${idx === 2 ? 'font-bold text-[#FF6EB4]' : 'text-gray-400'}`}>{month.label}</span>
                   </div>
                 ))}
